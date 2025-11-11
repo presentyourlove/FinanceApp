@@ -1,6 +1,4 @@
-// app/(tabs)/transaction.tsx
-
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -16,37 +14,31 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons'; 
 
+// 引入資料庫操作 (正確路徑)
+import { dbOperations } from '../database'; 
+
 // ===================================================
-// ✨ 數據結構定義 (保持不變)
+// ✨ 數據結構定義
 // ===================================================
 
 interface Account {
-  id: string;
+  id: number;
   name: string;
   initialBalance: number;
   currentBalance: number;
 }
 
 interface Transaction {
-  id: string; 
+  id: number; 
   amount: number; 
   type: 'income' | 'expense' | 'transfer'; 
-  date: Date; 
+  date: string; // 從資料庫讀取是 string
   description: string;
-  accountId: string; 
-  targetAccountId?: string; 
+  accountId: number; 
+  targetAccountId?: number; 
 }
 
-// ===================================================
-// ✨ 預設數據 (保持不變)
-// ===================================================
-
-const initialAccounts: Account[] = [
-  { id: '1', name: '錢包', initialBalance: 500, currentBalance: 500 },
-  { id: '2', name: '銀行戶口', initialBalance: 50000, currentBalance: 50000 },
-  { id: '3', name: '信用卡', initialBalance: 0, currentBalance: 0 },
-];
-
+// 預設分類 
 const defaultCategories = {
   expense: [
     '午餐', '晚餐', '交通', '購物', '娛樂', '水電費', '客戶A專案尾款 - 測試'
@@ -58,129 +50,219 @@ const defaultCategories = {
 
 
 // ===================================================
-// ✨ 主元件 (核心邏輯保持不變)
+// ✨ 主元件
 // ===================================================
 
 export default function TransactionScreen() {
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts); 
+  const [dbInitialized, setDbInitialized] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]); 
   const [transactions, setTransactions] = useState<Transaction[]>([]); 
-  const [selectedAccountId, setSelectedAccountId] = useState(initialAccounts[0].id);
-
+  
+  // 狀態管理
+  const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
   const [amountInput, setAmountInput] = useState(''); 
   const [descriptionInput, setDescriptionInput] = useState(''); 
   const [categories, setCategories] = useState(defaultCategories); 
-
+  
+  // 彈窗狀態
   const [isTransferModalVisible, setTransferModalVisible] = useState(false); 
   const [transferAmount, setTransferAmount] = useState(''); 
-  const [sourceAccountId, setSourceAccountId] = useState(initialAccounts[0].id); 
-  const [targetAccountId, setTargetAccountId] = useState(initialAccounts.length > 1 ? initialAccounts[1].id : initialAccounts[0].id); 
-
+  const [sourceAccountId, setSourceAccountId] = useState<number | undefined>(undefined); 
+  const [targetAccountId, setTargetAccountId] = useState<number | undefined>(undefined); 
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false); 
   const [newAccountName, setNewAccountName] = useState(''); 
   const [newAccountInitialBalance, setNewAccountInitialBalance] = useState(''); 
   const [newCategoryInput, setNewCategoryInput] = useState(''); 
   const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('expense'); 
 
+  // --- 資料庫讀取邏輯 ---
+  
+  // 1. 初始化資料庫並載入帳本 (App 第一次啟動)
+  useEffect(() => {
+    const loadData = async () => {
+        try {
+            await dbOperations.initDatabase();
+            setDbInitialized(true);
+            const loadedAccounts = await dbOperations.getAccounts();
+            setAccounts(loadedAccounts);
 
+            // 設置初始選定的帳本和轉帳帳本
+            if (loadedAccounts.length > 0) {
+                const initialId = loadedAccounts[0].id;
+                setSelectedAccountId(initialId);
+                setSourceAccountId(initialId);
+                
+                if (loadedAccounts.length > 1) {
+                    setTargetAccountId(loadedAccounts[1].id);
+                } else {
+                    setTargetAccountId(undefined);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load initial data:", e);
+        }
+    };
+    loadData();
+  }, []);
+
+  // 2. 載入特定帳本的交易記錄 (選定的帳本改變時)
+  useEffect(() => {
+    if (selectedAccountId === undefined || !dbInitialized) return;
+
+    const loadTransactions = async () => {
+        try {
+            // 載入與該帳本相關的所有交易 (作為源頭或目標)
+            const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
+            setTransactions(loadedTransactions);
+        } catch (e) {
+            console.error("Failed to load transactions:", e);
+        }
+    };
+    loadTransactions();
+  }, [selectedAccountId, dbInitialized]);
+  
+  // 當前餘額的計算 
   const currentBalance = useMemo(() => {
     return accounts.find(acc => acc.id === selectedAccountId)?.currentBalance || 0;
   }, [accounts, selectedAccountId]);
+  
+  // 如果資料庫未初始化，顯示載入中
+  if (!dbInitialized) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>正在載入資料庫...</Text>
+      </View>
+    );
+  }
 
-  // 交易處理邏輯 (省略... 保持不變)
-  const updateAccountBalance = useCallback((accountId: string, amount: number, isAddition: boolean) => {
-    return accounts.map(account => {
-      if (account.id === accountId) {
-        const newBalance = isAddition 
-          ? account.currentBalance + amount 
-          : account.currentBalance - amount;
-        return { ...account, currentBalance: newBalance };
-      }
-      return account;
-    });
-  }, [accounts]);
+  // 輔助函數：重新從資料庫載入帳本和交易
+  const refreshData = useCallback(async () => {
+    const loadedAccounts = await dbOperations.getAccounts();
+    setAccounts(loadedAccounts);
+    
+    if (selectedAccountId !== undefined) {
+        const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
+        setTransactions(loadedTransactions);
+    }
+  }, [selectedAccountId]);
 
 
-  const handleTransaction = (type: 'income' | 'expense') => {
+  const handleTransaction = async (type: 'income' | 'expense') => {
     const amount = parseFloat(amountInput);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert("無效輸入", "請輸入有效的正數金額。");
       return;
     }
+    if (selectedAccountId === undefined) {
+        Alert.alert("錯誤", "請先選擇一個帳本。");
+        return;
+    }
 
-    const updatedAccounts = updateAccountBalance(
-      selectedAccountId, 
-      amount, 
-      type === 'income'
-    );
-    setAccounts(updatedAccounts);
+    try {
+      // 1. 計算新的餘額
+      const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+      if (!currentAcc) throw new Error("Account not found.");
+      
+      const isAddition = type === 'income';
+      const newBalance = isAddition 
+          ? currentAcc.currentBalance + amount 
+          : currentAcc.currentBalance - amount;
+      
+      // 2. 更新資料庫中的帳本餘額
+      await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
 
-    const newTransaction: Transaction = {
-      id: Date.now().toString(), 
-      amount: amount,
-      type: type,
-      date: new Date(),
-      description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'),
-      accountId: selectedAccountId,
-    };
-    
-    setTransactions([newTransaction, ...transactions]); 
+      // 3. 新增交易記錄
+      await dbOperations.addTransactionDB({
+        amount: amount,
+        type: type,
+        date: new Date(),
+        description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'),
+        accountId: selectedAccountId,
+      });
 
-    setAmountInput('');
-    setDescriptionInput('');
-    Keyboard.dismiss(); 
+      // 4. 刷新 App 狀態
+      await refreshData();
+      
+      setAmountInput('');
+      setDescriptionInput('');
+      Keyboard.dismiss(); 
+      Alert.alert("成功", `${type === 'income' ? '收入' : '支出'} NT$ ${amount.toFixed(2)} 已記錄!`);
+
+    } catch (error) {
+        Alert.alert("交易失敗", "處理交易時發生錯誤。");
+        console.error("Transaction failed:", error);
+    }
   };
   
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     const amount = parseFloat(transferAmount);
     
-    if (isNaN(amount) || amount <= 0 || sourceAccountId === targetAccountId) {
-      Alert.alert("無效操作", "請輸入有效金額，並確保轉出與轉入帳本不同。");
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert("無效操作", "請輸入有效金額。");
+      return;
+    }
+    if (sourceAccountId === undefined || targetAccountId === undefined || sourceAccountId === targetAccountId) {
+      Alert.alert("無效操作", "請確保轉出與轉入帳本不同且已選定。");
       return;
     }
 
-    const sourceAccount = accounts.find(acc => acc.id === sourceAccountId);
-    if (!sourceAccount || sourceAccount.currentBalance < amount) {
-      Alert.alert("餘額不足", "轉出帳本餘額不足。");
-      return;
+    try {
+        const sourceAcc = accounts.find(acc => acc.id === sourceAccountId);
+        const targetAcc = accounts.find(acc => acc.id === targetAccountId);
+        
+        if (!sourceAcc || !targetAcc) throw new Error("Source or Target account not found.");
+
+        if (sourceAcc.currentBalance < amount) {
+          Alert.alert("餘額不足", "轉出帳本餘額不足。");
+          return;
+        }
+
+        // 1. 計算新的餘額
+        const newSourceBalance = sourceAcc.currentBalance - amount;
+        const newTargetBalance = targetAcc.currentBalance + amount;
+
+        // 2. 更新資料庫中的帳本餘額 
+        await dbOperations.updateAccountBalanceDB(sourceAccountId, newSourceBalance);
+        await dbOperations.updateAccountBalanceDB(targetAccountId, newTargetBalance);
+        
+        const now = new Date();
+
+        // 3. 新增轉出交易記錄
+        await dbOperations.addTransactionDB({
+          amount: amount,
+          type: 'transfer',
+          date: now,
+          description: `轉出至 ${targetAcc.name}`,
+          accountId: sourceAccountId,
+          targetAccountId: targetAccountId,
+        });
+        
+        // 4. 新增轉入交易記錄 (記錄在目標帳本的交易列表中)
+        await dbOperations.addTransactionDB({
+          amount: amount,
+          type: 'transfer',
+          date: now,
+          description: `轉入自 ${sourceAcc.name}`,
+          accountId: targetAccountId, 
+          targetAccountId: sourceAccountId, // 這裡的 targetAccountId 實際上是轉帳的來源 ID
+        });
+
+        // 5. 刷新 App 狀態
+        await refreshData();
+
+        setTransferAmount('');
+        setTransferModalVisible(false);
+        Alert.alert("成功", `NT$ ${amount.toFixed(2)} 已從 ${sourceAcc.name} 轉出至 ${targetAcc.name}。`);
+
+    } catch (error) {
+        Alert.alert("轉帳失敗", "處理轉帳時發生錯誤。");
+        console.error("Transfer failed:", error);
     }
-
-    let updatedAccounts = accounts;
-    updatedAccounts = updatedAccounts.map(acc => 
-      acc.id === sourceAccountId ? { ...acc, currentBalance: acc.currentBalance - amount } : acc
-    );
-    updatedAccounts = updatedAccounts.map(acc => 
-      acc.id === targetAccountId ? { ...acc, currentBalance: acc.currentBalance + amount } : acc
-    );
-    
-    setAccounts(updatedAccounts);
-
-    const transferOut: Transaction = {
-      id: Date.now().toString() + '-out', 
-      amount: amount,
-      type: 'transfer',
-      date: new Date(),
-      description: `轉出至 ${accounts.find(acc => acc.id === targetAccountId)?.name}`,
-      accountId: sourceAccountId,
-      targetAccountId: targetAccountId,
-    };
-    const transferIn: Transaction = {
-      id: Date.now().toString() + '-in', 
-      amount: amount,
-      type: 'transfer',
-      date: new Date(),
-      description: `轉入自 ${sourceAccount.name}`,
-      accountId: targetAccountId, 
-      targetAccountId: sourceAccount.id, // 使用 sourceAccount.id 作為轉入交易的目標帳本 ID
-    };
-    
-    setTransactions([transferOut, transferIn, ...transactions]); 
-
-    setTransferAmount('');
-    setTransferModalVisible(false);
   };
 
-  // 自定義設定邏輯 (省略... 保持不變)
-  const handleAddAccount = () => {
+  // --- 自定義設定邏輯 ---
+  
+  const handleAddAccount = async () => {
     const initialBalance = parseFloat(newAccountInitialBalance || '0');
 
     if (!newAccountName) {
@@ -192,29 +274,65 @@ export default function TransactionScreen() {
         return;
     }
 
-    const newAccount: Account = {
-      id: Date.now().toString(),
-      name: newAccountName,
-      initialBalance: initialBalance, 
-      currentBalance: initialBalance, 
-    };
+    try {
+        const newId = await dbOperations.addAccountDB(newAccountName, initialBalance);
+        
+        // 刷新 App 狀態
+        const loadedAccounts = await dbOperations.getAccounts();
+        setAccounts(loadedAccounts);
 
-    setAccounts([...accounts, newAccount]);
-    setNewAccountName('');
-    setNewAccountInitialBalance(''); 
-    Alert.alert("成功", `帳本「${newAccount.name}」已新增，初始資金 NT$${initialBalance.toFixed(0)}。`);
+        // 設置選定的帳本和轉帳目標
+        if (selectedAccountId === undefined) {
+            setSelectedAccountId(newId);
+            setSourceAccountId(newId);
+        }
+        if (accounts.length === 1 && loadedAccounts.length > 1) {
+             // 如果這是第二個帳本，將其設為目標帳本
+             setTargetAccountId(newId);
+        }
+
+        setNewAccountName('');
+        setNewAccountInitialBalance(''); 
+        Alert.alert("成功", `帳本「${newAccountName}」已新增。`);
+    } catch (error) {
+        Alert.alert("新增失敗", "新增帳本時發生錯誤。");
+    }
   };
 
-  const handleDeleteAccount = (id: string) => {
-    if (transactions.some(t => t.accountId === id)) {
-      Alert.alert("無法刪除", "此帳本仍有交易記錄，請先清空。");
-      return;
+  const handleDeleteAccount = async (id: number) => {
+    if (accounts.length <= 1) {
+        Alert.alert("無法刪除", "至少需要保留一個帳本。");
+        return;
     }
-    setAccounts(accounts.filter(acc => acc.id !== id));
-    if (selectedAccountId === id && accounts.length > 1) {
-        setSelectedAccountId(accounts.find(acc => acc.id !== id)?.id || accounts[0].id);
+
+    try {
+        await dbOperations.deleteAccountDB(id);
+        
+        // 刷新 App 狀態
+        const loadedAccounts = await dbOperations.getAccounts();
+        setAccounts(loadedAccounts);
+
+        // 如果刪除的是選定的帳本，則將選定 ID 轉移到第一個帳本
+        if (selectedAccountId === id) {
+            const newSelectedId = loadedAccounts[0]?.id;
+            setSelectedAccountId(newSelectedId);
+            setSourceAccountId(newSelectedId);
+        }
+        // 更新轉帳目標ID
+        if (targetAccountId === id) {
+             setTargetAccountId(loadedAccounts.length > 1 ? loadedAccounts.find(acc => acc.id !== selectedAccountId)?.id : undefined);
+        }
+        
+        Alert.alert("成功", "帳本已刪除。");
+    } catch (error: any) {
+        if (error.message.includes("transactions")) {
+            Alert.alert("無法刪除", "此帳本仍有交易記錄，請先清除相關交易。");
+        } else {
+            Alert.alert("刪除失敗", "刪除帳本時發生錯誤。");
+        }
     }
   };
+
 
   const handleAddCategory = () => {
     if (!newCategoryInput) return;
@@ -235,24 +353,54 @@ export default function TransactionScreen() {
     }));
   };
 
-  // 渲染元件 (省略... 保持不變)
+  // 渲染元件 
   const renderItem = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'income';
     const isTransfer = item.type === 'transfer';
     
-    const amountSign = isTransfer ? (item.accountId === sourceAccountId ? '-' : '+') : (isIncome ? '+' : '-');
-    const amountColor = isTransfer ? '#FF9500' : (isIncome ? '#4CD964' : '#FF3B30'); 
+    // 判斷交易方向來決定是加號還是減號
+    let amountSign: string;
+    let amountColor: string;
+    let descriptionText: string;
     
-    const accountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
+    // 找出轉出帳本和轉入帳本的名稱
+    const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
+    const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || '未知帳本';
+
+
+    if (isTransfer) {
+        // 如果是轉帳，判斷它是「轉出」（accountId）還是「轉入」（targetAccountId）
+        if (item.accountId === selectedAccountId) {
+            // 當前選定帳本是轉出方
+            amountSign = '-'; 
+            descriptionText = `轉出至 ${targetAccountName}`; // ✅ 修正這裡：使用 targetAccountName
+        } else {
+            // 當前選定帳本是轉入方 (item.targetAccountId 儲存的是來源 ID)
+            amountSign = '+';
+            descriptionText = `轉入自 ${sourceAccountName}`; // ✅ 修正這裡：使用 sourceAccountName
+        }
+        amountColor = '#FF9500';
+    } else {
+        amountSign = isIncome ? '+' : '-';
+        amountColor = isIncome ? '#4CD964' : '#FF3B30';
+        descriptionText = item.description;
+    }
+    
+    // 交易清單顯示的帳本始終是該筆記錄的帳本ID
+    const displayAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
+    
+    // 將 date 字符串轉為 Date 物件以格式化
+    const dateObject = new Date(item.date);
+
 
     return (
       <View style={styles.listItem}>
         <View style={styles.listItemTextContainer}>
-          <Text style={[styles.listItemType, { color: isTransfer ? '#FF9500' : '#333' }]} numberOfLines={1}>
-            {isTransfer ? '轉帳' : item.description}
+          <Text style={[styles.listItemType, { color: isTransfer ? '#333' : '#333' }]} numberOfLines={1}>
+            {descriptionText}
           </Text>
           <Text style={styles.listItemDate}>
-            {accountName} · {item.date.toLocaleDateString()}
+            {displayAccountName} · {dateObject.toLocaleDateString()}
           </Text>
         </View>
         <Text style={[styles.listItemAmount, { color: amountColor }]}>
@@ -262,7 +410,7 @@ export default function TransactionScreen() {
     );
   };
   
-  // 彈窗元件 (省略... 保持不變)
+  // 彈窗元件 (Modal)
   const TransferModal = () => (
     <Modal
       animationType="slide"
@@ -278,7 +426,7 @@ export default function TransactionScreen() {
             <Text style={styles.transferLabel}>轉出帳本:</Text>
             <Picker
               selectedValue={sourceAccountId}
-              onValueChange={(itemValue) => setSourceAccountId(itemValue)}
+              onValueChange={(itemValue: number) => setSourceAccountId(itemValue)}
               style={styles.transferPicker}
             >
               {accounts.map(acc => (
@@ -291,7 +439,7 @@ export default function TransactionScreen() {
             <Text style={styles.transferLabel}>轉入帳本:</Text>
             <Picker
               selectedValue={targetAccountId}
-              onValueChange={(itemValue) => setTargetAccountId(itemValue)}
+              onValueChange={(itemValue: number) => setTargetAccountId(itemValue)}
               style={styles.transferPicker}
             >
               {accounts.map(acc => (
@@ -373,7 +521,7 @@ export default function TransactionScreen() {
             </View>
 
             {/* B. 常用備註管理 */}
-            <Text style={styles.settingSectionTitle}>B. 常用備註管理</Text>
+            <Text style={styles.settingSectionTitle}>B. 常用備註管理 (本地儲存)</Text>
             <View style={styles.settingsSection}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Picker
@@ -398,8 +546,8 @@ export default function TransactionScreen() {
               {/* 顯示支出備註 */}
               <Text style={styles.settingSubtitle}>- 支出備註</Text>
               <View style={styles.categoryListRow}>
-                {categories.expense.map(cat => (
-                  <View key={cat} style={styles.categoryPill}>
+                {categories.expense.map((cat, index) => (
+                  <View key={index} style={styles.categoryPill}>
                     <Text style={styles.categoryPillText}>{cat}</Text>
                     <TouchableOpacity onPress={() => handleDeleteCategory('expense', cat)} style={{marginLeft: 5}}>
                        <Ionicons name="close-circle-outline" size={16} color="#333" />
@@ -411,8 +559,8 @@ export default function TransactionScreen() {
               {/* 顯示收入備註 */}
               <Text style={styles.settingSubtitle}>- 收入備註</Text>
                <View style={styles.categoryListRow}>
-                {categories.income.map(cat => (
-                  <View key={cat} style={styles.categoryPill}>
+                {categories.income.map((cat, index) => (
+                  <View key={index} style={styles.categoryPill}>
                     <Text style={styles.categoryPillText}>{cat}</Text>
                     <TouchableOpacity onPress={() => handleDeleteCategory('income', cat)} style={{marginLeft: 5}}>
                       <Ionicons name="close-circle-outline" size={16} color="#333" />
@@ -442,15 +590,14 @@ export default function TransactionScreen() {
   return (
     <View style={styles.container}>
       
-      {/* 頂部 Header 區 (修正了 Picker.Item 的變數名稱) */}
+      {/* 頂部 Header 區 */}
       <View style={styles.header}>
         <Picker
           selectedValue={selectedAccountId}
-          onValueChange={(itemValue) => setSelectedAccountId(itemValue)}
+          onValueChange={(itemValue: number) => setSelectedAccountId(itemValue)}
           style={styles.picker}
         >
           {accounts.map(account => (
-            // ✨ 修正這裡，使用 account.id 和 account.name
             <Picker.Item key={account.id} label={account.name} value={account.id} />
           ))}
         </Picker>
@@ -479,7 +626,7 @@ export default function TransactionScreen() {
           onChangeText={setDescriptionInput}
         />
         
-        {/* 2. 交易操作區 (垂直排列，每行包含按鈕和備註) */}
+        {/* 2. 交易操作區 */}
         <View style={styles.buttonContainer}>
             
             {/* 收入行：按鈕 + 備註 */}
@@ -535,7 +682,7 @@ export default function TransactionScreen() {
 
       </View>
 
-      {/* 交易清單顯示區 (保持不變) */}
+      {/* 交易清單顯示區 */}
       <View style={styles.listHeaderRow}>
         <Text style={styles.listHeader}>近期交易 (帳本: {accounts.find(acc => acc.id === selectedAccountId)?.name})</Text>
         <TouchableOpacity onPress={() => setSettingsModalVisible(true)} style={{padding: 5}}>
@@ -544,9 +691,9 @@ export default function TransactionScreen() {
       </View>
       <FlatList
         style={styles.list}
-        data={transactions.filter(t => t.accountId === selectedAccountId)} 
+        data={transactions} 
         renderItem={renderItem} 
-        keyExtractor={item => item.id} 
+        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()} 
         ListEmptyComponent={() => (
           <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>
         )}
@@ -565,6 +712,8 @@ export default function TransactionScreen() {
 // ===================================================
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+    loadingText: { fontSize: 18, color: '#007AFF' },
     header: { alignItems: 'center', paddingTop: 60, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
     picker: { width: '50%', height: 40, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8 },
     title: { fontSize: 16, fontWeight: 'normal', color: '#666', marginBottom: 5 },
@@ -577,7 +726,7 @@ const styles = StyleSheet.create({
     buttonContainer: { width: '90%', paddingBottom: 5 }, 
     transactionRow: { 
         flexDirection: 'row', 
-        alignItems: 'center', // 垂直置中對齊 (維持)
+        alignItems: 'center', 
         justifyContent: 'flex-start', 
     },
     mainButton: { 
@@ -611,6 +760,15 @@ const styles = StyleSheet.create({
     incomeButton: { backgroundColor: '#4CD964' }, 
     expenseButton: { backgroundColor: '#FF3B30' },
     transferButton: { backgroundColor: '#FF9500' }, 
+    
+    // 通用 button 樣式 
+    button: { 
+        padding: 10, 
+        borderRadius: 8, 
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 
     listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 15, backgroundColor: '#eee' },
@@ -624,7 +782,7 @@ const styles = StyleSheet.create({
     listItemAmount: { fontSize: 18, fontWeight: 'bold' },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#999' },
     
-    // --- Modal 樣式 --- (保持不變)
+    // --- Modal 樣式 ---
     centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 35, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%' },
     settingsModalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '95%' },
@@ -637,7 +795,7 @@ const styles = StyleSheet.create({
     modalCloseButton: { backgroundColor: '#8E8E93', width: '48%' },
     modalConfirmButton: { backgroundColor: '#007AFF', width: '48%' },
 
-    // --- 設定區塊樣式 --- (保持不變)
+    // --- 設定區塊樣式 ---
     settingSectionTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 20, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 5 },
     settingsSection: { width: '100%', paddingHorizontal: 5, marginBottom: 15 },
     settingListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
