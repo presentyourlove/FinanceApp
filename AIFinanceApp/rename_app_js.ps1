@@ -1,1 +1,0 @@
-Rename-Item -Path 'f:\AIFinanceApp-main\AIFinanceApp\AIFinanceApp\App.js' -NewName 'App.bak'
