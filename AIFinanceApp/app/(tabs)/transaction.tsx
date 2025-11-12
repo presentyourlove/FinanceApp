@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
     loadingText: { fontSize: 18, color: '#007AFF' },
     header: { alignItems: 'center', paddingTop: 75, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-    picker: { width: '50%', height: 40, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8 },
+    picker: { width: '80%', height: 60, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8 },
     title: { fontSize: 16, fontWeight: 'normal', color: '#666', marginBottom: 5 },
     balanceText: { fontSize: 40, fontWeight: '800' },
     
