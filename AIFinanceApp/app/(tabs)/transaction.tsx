@@ -72,7 +72,8 @@ export default function TransactionScreen() {
   const [transferAmount, setTransferAmount] = useState(''); 
   const [sourceAccountId, setSourceAccountId] = useState<number | undefined>(undefined); 
   const [targetAccountId, setTargetAccountId] = useState<number | undefined>(undefined); 
-  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false); 
+  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false); 
   const [newAccountName, setNewAccountName] = useState(''); 
   const [newAccountInitialBalance, setNewAccountInitialBalance] = useState(''); 
   const [newCategoryInput, setNewCategoryInput] = useState(''); 
@@ -579,20 +580,63 @@ export default function TransactionScreen() {
     </Modal>
   );
 
+  // 自定義帳本選擇 Modal
+  const AccountSelectModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={isAccountSelectModalVisible}
+      onRequestClose={() => setAccountSelectModalVisible(false)}
+    >
+      <View style={styles.centeredView}>
+        <View style={styles.accountSelectModalView}>
+          <Text style={styles.accountSelectModalTitle}>選擇帳本</Text>
+          <ScrollView style={{ maxHeight: 300 }}>
+            {accounts.map(account => (
+              <TouchableOpacity
+                key={account.id}
+                style={[
+                  styles.accountSelectItem,
+                  selectedAccountId === account.id && styles.accountSelectItemSelected
+                ]}
+                onPress={() => {
+                  setSelectedAccountId(account.id);
+                  setAccountSelectModalVisible(false);
+                }}
+              >
+                <Text style={[
+                  styles.accountSelectItemText,
+                  selectedAccountId === account.id && styles.accountSelectItemTextSelected
+                ]}>
+                  {account.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.button, styles.modalCloseButton, { marginTop: 15, width: '100%' }]}
+            onPress={() => setAccountSelectModalVisible(false)}
+          >
+            <Text style={styles.buttonText}>關閉</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
 
   const renderListHeader = () => (
     <>
       {/* 頂部 Header 區 */}
       <View style={styles.header}>
-        <Picker
-          selectedValue={selectedAccountId}
-          onValueChange={(itemValue: number) => setSelectedAccountId(itemValue)}
+        <TouchableOpacity
           style={styles.picker}
+          onPress={() => setAccountSelectModalVisible(true)}
         >
-          {accounts.map(account => (
-            <Picker.Item key={account.id} label={account.name} value={account.id} />
-          ))}
-        </Picker>
+          <Text style={styles.pickerDisplayText}>
+            {accounts.find(acc => acc.id === selectedAccountId)?.name || '選擇帳本'}
+          </Text>
+        </TouchableOpacity>
 
         <Text style={styles.title}>當前帳本餘額</Text>
         <Text style={[styles.balanceText, { color: currentBalance >= 0 ? '#007AFF' : '#FF3B30' }]}>
@@ -706,6 +750,7 @@ export default function TransactionScreen() {
       {/* 彈窗渲染 */}
       <TransferModal />
       <SettingsModal />
+      <AccountSelectModal />
 
     </View>
   );
@@ -719,9 +764,11 @@ const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
     loadingText: { fontSize: 18, color: '#007AFF' },
     header: { alignItems: 'center', paddingTop: 75, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-    picker: { width: '80%', height: 60, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8 },
-    title: { fontSize: 16, fontWeight: 'normal', color: '#666', marginBottom: 5 },
-    balanceText: { fontSize: 40, fontWeight: '800' },
+    picker: { width: '80%', paddingVertical: 5, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    pickerDisplayText: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
+    pickerItem: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
+    title: { paddingTop: 25,fontSize: 28, fontWeight: 'normal', color: '#666', marginBottom: 5 },
+    balanceText: { fontSize: 80, fontWeight: '800' },
     
     inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
     input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15 },
@@ -812,4 +859,12 @@ const styles = StyleSheet.create({
     categoryListRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
     categoryPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e0e0', borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 },
     categoryPillText: { fontSize: 14 },
+
+    // --- 帳本選擇 Modal 樣式 ---
+    accountSelectModalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%', maxHeight: '80%' },
+    accountSelectModalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
+    accountSelectItem: { paddingVertical: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', backgroundColor: '#fff' },
+    accountSelectItemSelected: { backgroundColor: '#E8F4FF', borderLeftWidth: 4, borderLeftColor: '#007AFF' },
+    accountSelectItemText: { fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center' },
+    accountSelectItemTextSelected: { color: '#007AFF' },
 });
