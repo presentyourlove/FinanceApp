@@ -126,15 +126,6 @@ export default function TransactionScreen() {
     return accounts.find(acc => acc.id === selectedAccountId)?.currentBalance || 0;
   }, [accounts, selectedAccountId]);
   
-  // 如果資料庫未初始化，顯示載入中
-  if (!dbInitialized) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>正在載入資料庫...</Text>
-      </View>
-    );
-  }
-
   // 輔助函數：重新從資料庫載入帳本和交易
   const refreshData = useCallback(async () => {
     const loadedAccounts = await dbOperations.getAccounts();
@@ -145,6 +136,8 @@ export default function TransactionScreen() {
         setTransactions(loadedTransactions);
     }
   }, [selectedAccountId]);
+
+
 
 
   const handleTransaction = async (type: 'income' | 'expense') => {
@@ -584,12 +577,8 @@ export default function TransactionScreen() {
   );
 
 
-  // ---------------------------------------------------
-  // 主介面渲染
-  // ---------------------------------------------------
-  return (
-    <View style={styles.container}>
-      
+  const renderListHeader = () => (
+    <>
       {/* 頂部 Header 區 */}
       <View style={styles.header}>
         <Picker
@@ -604,18 +593,18 @@ export default function TransactionScreen() {
 
         <Text style={styles.title}>當前帳本餘額</Text>
         <Text style={[styles.balanceText, { color: currentBalance >= 0 ? '#007AFF' : '#FF3B30' }]}>
-          NT$ {currentBalance.toFixed(2)} 
+          NT$ {currentBalance.toFixed(2)}
         </Text>
       </View>
-      
+
       {/* 輸入框與按鈕區 */}
       <View style={styles.inputArea}>
-        
+
         {/* 1. 金額/備註輸入框 (頂部) */}
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 10 }]}
           placeholder="請輸入金額 (例如: 500)"
-          keyboardType="numeric" 
+          keyboardType="numeric"
           value={amountInput}
           onChangeText={setAmountInput}
         />
@@ -625,10 +614,10 @@ export default function TransactionScreen() {
           value={descriptionInput}
           onChangeText={setDescriptionInput}
         />
-        
+
         {/* 2. 交易操作區 */}
         <View style={styles.buttonContainer}>
-            
+
             {/* 收入行：按鈕 + 備註 */}
             <View style={styles.transactionRow}>
                 <TouchableOpacity
@@ -689,15 +678,25 @@ export default function TransactionScreen() {
             <Ionicons name="cog-outline" size={24} color="#333" />
         </TouchableOpacity>
       </View>
-      <FlatList
-        style={styles.list}
-        data={transactions} 
-        renderItem={renderItem} 
-        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()} 
-        ListEmptyComponent={() => (
-          <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>
-        )}
-      />
+    </>
+  );
+
+
+  // ---------------------------------------------------
+  // 主介面渲染
+  // ---------------------------------------------------
+  return (
+    <View style={styles.container}>
+      <ScrollView style={styles.list}>
+        {renderListHeader()}
+        {transactions.length > 0 
+          ? transactions.map((item, index) => {
+              const renderedItem = renderItem({ item });
+              return React.cloneElement(renderedItem, { key: item.id ? item.id.toString() : index.toString() });
+            })
+          : <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>
+        }
+      </ScrollView>
 
       {/* 彈窗渲染 */}
       <TransferModal />
@@ -773,7 +772,7 @@ const styles = StyleSheet.create({
 
     listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 15, backgroundColor: '#eee' },
     listHeader: { fontSize: 18, fontWeight: 'bold', padding: 15, color: '#333' },
-    list: { flex: 1 },
+    list: { },
     
     listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
     listItemTextContainer: { flex: 1, marginRight: 10 },

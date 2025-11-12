@@ -39,13 +39,12 @@ export default function TabLayout() {
         }}
       />
       
-      {/* 📊 預算與目標頁面 - 檔案名: app/(tabs)/two.tsx */}
+      {/* 📊 圖表分析頁面 - 檔案名: app/(tabs)/two.tsx */}
       <Tabs.Screen
-        name="two" 
+        name="two"
         options={{
-          title: '📊 預算與目標',
-          // 修正為現代 Ionicons 名稱
-          tabBarIcon: ({ color }) => <TabBarIcon name="stats-chart" color={color} />,
+          title: '📊 圖表分析',
+          tabBarIcon: ({ color }) => <TabBarIcon name="pie-chart" color={color} />,
         }}
       />
       
