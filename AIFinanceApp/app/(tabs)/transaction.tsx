@@ -10,7 +10,9 @@ import {
   Keyboard,
   ScrollView,
   Modal, 
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons'; 
 
@@ -54,6 +56,7 @@ const defaultCategories = {
 // ===================================================
 
 export default function TransactionScreen() {
+  const insets = useSafeAreaInsets();
   const [dbInitialized, setDbInitialized] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]); 
   const [transactions, setTransactions] = useState<Transaction[]>([]); 
@@ -687,16 +690,18 @@ export default function TransactionScreen() {
   // ---------------------------------------------------
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.list}>
-        {renderListHeader()}
-        {transactions.length > 0 
-          ? transactions.map((item, index) => {
-              const renderedItem = renderItem({ item });
-              return React.cloneElement(renderedItem, { key: item.id ? item.id.toString() : index.toString() });
-            })
-          : <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>
-        }
-      </ScrollView>
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={{ 
+          paddingBottom: insets.bottom + 20,
+        }}
+        scrollEnabled={true}
+        data={transactions}
+        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+        renderItem={({ item }) => renderItem({ item })}
+        ListHeaderComponent={renderListHeader()}
+        ListEmptyComponent={() => <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>}
+      />
 
       {/* 彈窗渲染 */}
       <TransferModal />
@@ -713,27 +718,28 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
     loadingText: { fontSize: 18, color: '#007AFF' },
-    header: { alignItems: 'center', paddingTop: 60, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+    header: { alignItems: 'center', paddingTop: 75, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
     picker: { width: '50%', height: 40, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8 },
     title: { fontSize: 16, fontWeight: 'normal', color: '#666', marginBottom: 5 },
     balanceText: { fontSize: 40, fontWeight: '800' },
     
-    inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+    inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
     input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15 },
     
     // ✨ 交易操作區塊樣式
-    buttonContainer: { width: '90%', paddingBottom: 5 }, 
+    buttonContainer: { width: '90%', paddingBottom: 5, alignSelf: 'center' }, 
     transactionRow: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        justifyContent: 'flex-start', 
+        justifyContent: 'flex-start',
+        minHeight: 50,
     },
     mainButton: { 
         padding: 10, 
         borderRadius: 8, 
         alignItems: 'center',
         justifyContent: 'center',
-        height: '100%', 
+        minHeight: 45,
     },
     autoWidthButton: {
         paddingHorizontal: 15, 
@@ -772,7 +778,7 @@ const styles = StyleSheet.create({
 
     listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 15, backgroundColor: '#eee' },
     listHeader: { fontSize: 18, fontWeight: 'bold', padding: 15, color: '#333' },
-    list: { },
+    list: { flex: 1 },
     
     listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
     listItemTextContainer: { flex: 1, marginRight: 10 },
