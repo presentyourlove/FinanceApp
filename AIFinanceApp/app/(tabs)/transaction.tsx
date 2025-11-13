@@ -43,10 +43,10 @@ interface Transaction {
 // 預設分類 
 const defaultCategories = {
   expense: [
-    '午餐', '晚餐', '交通', '購物', '娛樂', '水電費', '客戶A專案尾款 - 測試'
+    '餐飲', '交通', '服飾', '居住', '購物', '醫療', '保險','教育','娛樂','旅遊','運動'
   ],
   income: [
-    '薪水', '兼職', '投資收益', '禮金', '客戶B專案尾款 - 測試自適應' 
+    '薪水', '津貼', '兼職', '接案', '股利' ,'利息','資本利得','租金','稿費','版稅','禮金','退稅','補助'
   ],
 };
 
@@ -651,6 +651,7 @@ export default function TransactionScreen() {
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 10 }]}
           placeholder="請輸入金額 (例如: 500)"
+          placeholderTextColor="#999"
           keyboardType="numeric"
           value={amountInput}
           onChangeText={setAmountInput}
@@ -658,6 +659,7 @@ export default function TransactionScreen() {
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 15 }]}
           placeholder="請輸入備註 (例如: 午餐、薪水)"
+          placeholderTextColor="#999"
           value={descriptionInput}
           onChangeText={setDescriptionInput}
         />
@@ -768,7 +770,7 @@ const styles = StyleSheet.create({
     pickerDisplayText: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
     pickerItem: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
     title: { paddingTop: 25,fontSize: 28, fontWeight: 'normal', color: '#666', marginBottom: 5 },
-    balanceText: { fontSize: 80, fontWeight: '800' },
+    balanceText: { fontSize: 70, fontWeight: '800' },
     
     inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
     input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15 },
