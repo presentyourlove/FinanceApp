@@ -11,6 +11,7 @@ import {
   ScrollView,
   Modal,
   Dimensions,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -76,8 +77,11 @@ export default function TransactionScreen() {
   const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountInitialBalance, setNewAccountInitialBalance] = useState('');
+
+  // 自定義分類相關狀態
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('expense');
+  const [showCategoryTypePicker, setShowCategoryTypePicker] = useState(false); // 控制自定義下拉選單顯示
 
   // --- 資料庫讀取邏輯 ---
 
@@ -643,23 +647,27 @@ export default function TransactionScreen() {
               {/* B. 常用備註管理 */}
               <Text style={styles.settingSectionTitle}>B. 常用備註管理 (本地儲存)</Text>
               <View style={styles.settingsSection}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Picker
-                    selectedValue={newCategoryType}
-                    onValueChange={(itemValue) => setNewCategoryType(itemValue)}
-                    style={styles.categoryTypePicker}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, zIndex: 10 }}>
+
+                  {/* 自定義下拉選單按鈕 (取代 Picker) */}
+                  <TouchableOpacity
+                    style={styles.customPickerButton}
+                    onPress={() => setShowCategoryTypePicker(true)}
                   >
-                    <Picker.Item label="支出備註" value="expense" />
-                    <Picker.Item label="收入備註" value="income" />
-                  </Picker>
+                    <Text style={styles.customPickerText}>
+                      {newCategoryType === 'expense' ? '支出' : '收入'}
+                    </Text>
+                    <Ionicons name="caret-down" size={16} color="#333" />
+                  </TouchableOpacity>
+
                   <TextInput
-                    style={[styles.input, { width: '45%', marginHorizontal: 5 }]}
+                    style={[styles.input, { flex: 1, marginHorizontal: 5 }]}
                     placeholder="新備註"
                     value={newCategoryInput}
                     onChangeText={setNewCategoryInput}
                   />
                   <TouchableOpacity style={styles.addButton} onPress={handleAddCategory}>
-                    <Ionicons name="add-circle" size={24} color="#4CD964" />
+                    <Ionicons name="add-circle" size={30} color="#4CD964" />
                   </TouchableOpacity>
                 </View>
 
@@ -742,6 +750,38 @@ export default function TransactionScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* Category Type Selection Modal (Custom Dropdown) */}
+      <Modal
+        visible={showCategoryTypePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCategoryTypePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCategoryTypePicker(false)}
+        >
+          <View style={styles.pickerModalContent}>
+            <TouchableOpacity
+              style={styles.pickerOption}
+              onPress={() => { setNewCategoryType('expense'); setShowCategoryTypePicker(false); }}
+            >
+              <Text style={[styles.pickerOptionText, newCategoryType === 'expense' && styles.pickerOptionTextSelected]}>支出</Text>
+              {newCategoryType === 'expense' && <Ionicons name="checkmark" size={20} color="#007AFF" />}
+            </TouchableOpacity>
+            <View style={styles.separator} />
+            <TouchableOpacity
+              style={styles.pickerOption}
+              onPress={() => { setNewCategoryType('income'); setShowCategoryTypePicker(false); }}
+            >
+              <Text style={[styles.pickerOptionText, newCategoryType === 'income' && styles.pickerOptionTextSelected]}>收入</Text>
+              {newCategoryType === 'income' && <Ionicons name="checkmark" size={20} color="#007AFF" />}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
     </View>
@@ -847,7 +887,31 @@ const styles = StyleSheet.create({
   addButton: { padding: 5, borderRadius: 5 },
 
   settingSubtitle: { fontSize: 14, fontWeight: '600', marginTop: 10, marginBottom: 5 },
-  categoryTypePicker: { width: '50%', height: 40, backgroundColor: '#f0f0f0', borderRadius: 8, marginRight: 10 },
+
+  // Custom Picker Styles
+  customPickerButton: {
+    width: 100,
+    height: 45,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginRight: 5
+  },
+  customPickerText: { fontSize: 16, color: '#333' },
+
+  // Picker Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  pickerModalContent: { width: 200, backgroundColor: 'white', borderRadius: 10, padding: 10, elevation: 5 },
+  pickerOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20 },
+  pickerOptionText: { fontSize: 18, color: '#333' },
+  pickerOptionTextSelected: { color: '#007AFF', fontWeight: 'bold' },
+  separator: { height: 1, backgroundColor: '#eee' },
+
   categoryListRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   categoryPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e0e0', borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 },
   categoryPillText: { fontSize: 14 },
