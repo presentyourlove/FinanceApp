@@ -10,12 +10,12 @@ import {
   Keyboard,
   ScrollView,
   Modal,
-  Dimensions,
-  TouchableWithoutFeedback
+  Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // 引入資料庫操作 (正確路徑)
 import { dbOperations } from '../database';
@@ -81,7 +81,34 @@ export default function TransactionScreen() {
   // 自定義分類相關狀態
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('expense');
-  const [showCategoryTypePicker, setShowCategoryTypePicker] = useState(false); // 控制自定義下拉選單顯示
+  const [isSorting, setIsSorting] = useState(false); // 排序模式狀態
+
+  // 日期時間選擇狀態
+  const [transactionDate, setTransactionDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      const newDate = new Date(transactionDate);
+      newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      setTransactionDate(newDate);
+    }
+  };
+
+  const onTimeChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (selectedDate) {
+      const newDate = new Date(transactionDate);
+      newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+      setTransactionDate(newDate);
+    }
+  };
 
   // --- 資料庫讀取邏輯 ---
 
@@ -176,7 +203,7 @@ export default function TransactionScreen() {
       await dbOperations.addTransactionDB({
         amount: amount,
         type: type,
-        date: new Date(),
+        date: transactionDate,
         description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'),
         accountId: selectedAccountId,
       });
@@ -354,6 +381,18 @@ export default function TransactionScreen() {
     }));
   };
 
+  const moveCategory = (type: 'income' | 'expense', index: number, direction: 'up' | 'down') => {
+    const list = [...categories[type]];
+    if (direction === 'up') {
+      if (index === 0) return;
+      [list[index - 1], list[index]] = [list[index], list[index - 1]];
+    } else {
+      if (index === list.length - 1) return;
+      [list[index + 1], list[index]] = [list[index], list[index + 1]];
+    }
+    setCategories(prev => ({ ...prev, [type]: list }));
+  };
+
   // 渲染元件 
   const renderItem = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'income';
@@ -374,11 +413,11 @@ export default function TransactionScreen() {
       if (item.accountId === selectedAccountId) {
         // 當前選定帳本是轉出方
         amountSign = '-';
-        descriptionText = `轉出至 ${targetAccountName}`; // ✅ 修正這裡：使用 targetAccountName
+        descriptionText = `轉出至 ${targetAccountName}`;
       } else {
         // 當前選定帳本是轉入方 (item.targetAccountId 儲存的是來源 ID)
         amountSign = '+';
-        descriptionText = `轉入自 ${sourceAccountName}`; // ✅ 修正這裡：使用 sourceAccountName
+        descriptionText = `轉入自 ${sourceAccountName}`;
       }
       amountColor = '#FF9500';
     } else {
@@ -434,6 +473,93 @@ export default function TransactionScreen() {
       <View style={styles.inputArea}>
 
         {/* 1. 金額/備註輸入框 (頂部) */}
+
+        {/* 日期時間選擇區 */}
+        <View style={{ flexDirection: 'row', width: '90%', marginBottom: 10, justifyContent: 'space-between' }}>
+          <TouchableOpacity
+            style={[styles.input, { flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 16, color: '#333' }}>
+              {transactionDate.toLocaleDateString()}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.input, { flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Ionicons name="time-outline" size={20} color="#666" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 16, color: '#333' }}>
+              {transactionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* DateTimePicker Components */}
+        {/* iOS Date Picker */}
+        {Platform.OS === 'ios' && showDatePicker && (
+          <Modal transparent={true} animationType="slide" visible={showDatePicker}>
+            <View style={styles.iosModalOverlay}>
+              <View style={styles.iosPickerContent}>
+                <View style={styles.iosPickerHeader}>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <Text style={styles.iosPickerDoneText}>完成</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={transactionDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  textColor="#000"
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {/* Android Date Picker */}
+        {Platform.OS === 'android' && showDatePicker && (
+          <DateTimePicker
+            value={transactionDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
+
+        {/* iOS Time Picker */}
+        {Platform.OS === 'ios' && showTimePicker && (
+          <Modal transparent={true} animationType="slide" visible={showTimePicker}>
+            <View style={styles.iosModalOverlay}>
+              <View style={styles.iosPickerContent}>
+                <View style={styles.iosPickerHeader}>
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                    <Text style={styles.iosPickerDoneText}>完成</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={transactionDate}
+                  mode="time"
+                  display="spinner"
+                  onChange={onTimeChange}
+                  textColor="#000"
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {/* Android Time Picker */}
+        {Platform.OS === 'android' && showTimePicker && (
+          <DateTimePicker
+            value={transactionDate}
+            mode="time"
+            display="default"
+            onChange={onTimeChange}
+          />
+        )}
+
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 10 }]}
           placeholder="請輸入金額 (例如: 500)"
@@ -609,7 +735,7 @@ export default function TransactionScreen() {
         <View style={styles.centeredView}>
           <View style={styles.settingsModalView}>
             <Text style={styles.modalTitle}>自定義設定</Text>
-            <ScrollView style={{ maxHeight: 500 }}>
+            <ScrollView style={{ maxHeight: 500 }} keyboardShouldPersistTaps="handled">
 
               {/* A. 帳本管理 */}
               <Text style={styles.settingSectionTitle}>A. 帳本管理</Text>
@@ -619,12 +745,14 @@ export default function TransactionScreen() {
                   <TextInput
                     style={[styles.input, { flex: 1, marginRight: 5 }]}
                     placeholder="新帳本名稱"
+                    placeholderTextColor="#666"
                     value={newAccountName}
                     onChangeText={setNewAccountName}
                   />
                   <TextInput
                     style={[styles.input, { width: '30%', marginRight: 5 }]}
                     placeholder="初始資金"
+                    placeholderTextColor="#666"
                     keyboardType="numeric"
                     value={newAccountInitialBalance}
                     onChangeText={setNewAccountInitialBalance}
@@ -649,59 +777,113 @@ export default function TransactionScreen() {
               <View style={styles.settingsSection}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, zIndex: 10 }}>
 
-                  {/* 自定義下拉選單按鈕 (取代 Picker) */}
+                  {/* 自定義切換按鈕 (取代 Dropdown) */}
                   <TouchableOpacity
-                    style={styles.customPickerButton}
-                    onPress={() => setShowCategoryTypePicker(true)}
+                    style={[
+                      styles.customPickerButton,
+                      {
+                        backgroundColor: newCategoryType === 'expense' ? '#FFF0F0' : '#F0FFF0',
+                        borderColor: newCategoryType === 'expense' ? '#FF3B30' : '#4CD964'
+                      }
+                    ]}
+                    onPress={() => setNewCategoryType(prev => prev === 'expense' ? 'income' : 'expense')}
                   >
-                    <Text style={styles.customPickerText}>
+                    <Text style={[
+                      styles.customPickerText,
+                      { color: newCategoryType === 'expense' ? '#FF3B30' : '#4CD964', fontWeight: 'bold' }
+                    ]}>
                       {newCategoryType === 'expense' ? '支出' : '收入'}
                     </Text>
-                    <Ionicons name="caret-down" size={16} color="#333" />
+                    <Ionicons name="swap-horizontal" size={16} color={newCategoryType === 'expense' ? '#FF3B30' : '#4CD964'} />
                   </TouchableOpacity>
 
                   <TextInput
                     style={[styles.input, { flex: 1, marginHorizontal: 5 }]}
                     placeholder="新備註"
+                    placeholderTextColor="#666"
                     value={newCategoryInput}
                     onChangeText={setNewCategoryInput}
                   />
                   <TouchableOpacity style={styles.addButton} onPress={handleAddCategory}>
                     <Ionicons name="add-circle" size={30} color="#4CD964" />
                   </TouchableOpacity>
+
+                  {/* 排序按鈕 */}
+                  <TouchableOpacity
+                    style={[styles.addButton, { marginLeft: 10 }]}
+                    onPress={() => setIsSorting(!isSorting)}
+                  >
+                    <Ionicons name={isSorting ? "checkmark-circle" : "reorder-four"} size={30} color={isSorting ? "#007AFF" : "#666"} />
+                  </TouchableOpacity>
                 </View>
 
                 {/* 顯示支出備註 */}
                 <Text style={styles.settingSubtitle}>- 支出備註</Text>
-                <View style={styles.categoryListRow}>
-                  {categories.expense.map((cat, index) => (
-                    <View key={index} style={styles.categoryPill}>
-                      <Text style={styles.categoryPillText}>{cat}</Text>
-                      <TouchableOpacity onPress={() => handleDeleteCategory('expense', cat)} style={{ marginLeft: 5 }}>
-                        <Ionicons name="close-circle-outline" size={16} color="#333" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
+                {isSorting ? (
+                  <View style={styles.sortListContainer}>
+                    {categories.expense.map((cat, index) => (
+                      <View key={index} style={styles.sortListItem}>
+                        <Text style={styles.sortListItemText}>{cat}</Text>
+                        <View style={{ flexDirection: 'row' }}>
+                          <TouchableOpacity onPress={() => moveCategory('expense', index, 'up')} style={styles.sortButton}>
+                            <Ionicons name="arrow-up-circle" size={24} color={index === 0 ? "#ccc" : "#007AFF"} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => moveCategory('expense', index, 'down')} style={styles.sortButton}>
+                            <Ionicons name="arrow-down-circle" size={24} color={index === categories.expense.length - 1 ? "#ccc" : "#007AFF"} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.categoryListRow}>
+                    {categories.expense.map((cat, index) => (
+                      <View key={index} style={styles.categoryPill}>
+                        <Text style={styles.categoryPillText}>{cat}</Text>
+                        <TouchableOpacity onPress={() => handleDeleteCategory('expense', cat)} style={{ marginLeft: 5 }}>
+                          <Ionicons name="close-circle-outline" size={16} color="#333" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* 顯示收入備註 */}
                 <Text style={styles.settingSubtitle}>- 收入備註</Text>
-                <View style={styles.categoryListRow}>
-                  {categories.income.map((cat, index) => (
-                    <View key={index} style={styles.categoryPill}>
-                      <Text style={styles.categoryPillText}>{cat}</Text>
-                      <TouchableOpacity onPress={() => handleDeleteCategory('income', cat)} style={{ marginLeft: 5 }}>
-                        <Ionicons name="close-circle-outline" size={16} color="#333" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
+                {isSorting ? (
+                  <View style={styles.sortListContainer}>
+                    {categories.income.map((cat, index) => (
+                      <View key={index} style={styles.sortListItem}>
+                        <Text style={styles.sortListItemText}>{cat}</Text>
+                        <View style={{ flexDirection: 'row' }}>
+                          <TouchableOpacity onPress={() => moveCategory('income', index, 'up')} style={styles.sortButton}>
+                            <Ionicons name="arrow-up-circle" size={24} color={index === 0 ? "#ccc" : "#007AFF"} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => moveCategory('income', index, 'down')} style={styles.sortButton}>
+                            <Ionicons name="arrow-down-circle" size={24} color={index === categories.income.length - 1 ? "#ccc" : "#007AFF"} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.categoryListRow}>
+                    {categories.income.map((cat, index) => (
+                      <View key={index} style={styles.categoryPill}>
+                        <Text style={styles.categoryPillText}>{cat}</Text>
+                        <TouchableOpacity onPress={() => handleDeleteCategory('income', cat)} style={{ marginLeft: 5 }}>
+                          <Ionicons name="close-circle-outline" size={16} color="#333" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
               </View>
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.button, styles.modalCloseButton, { marginTop: 15 }]}
+              style={[styles.button, styles.modalCloseButton, { marginTop: 15, alignSelf: 'center' }]}
               onPress={() => setSettingsModalVisible(false)}
             >
               <Text style={styles.buttonText}>關閉設定</Text>
@@ -751,39 +933,6 @@ export default function TransactionScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* Category Type Selection Modal (Custom Dropdown) */}
-      <Modal
-        visible={showCategoryTypePicker}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCategoryTypePicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowCategoryTypePicker(false)}
-        >
-          <View style={styles.pickerModalContent}>
-            <TouchableOpacity
-              style={styles.pickerOption}
-              onPress={() => { setNewCategoryType('expense'); setShowCategoryTypePicker(false); }}
-            >
-              <Text style={[styles.pickerOptionText, newCategoryType === 'expense' && styles.pickerOptionTextSelected]}>支出</Text>
-              {newCategoryType === 'expense' && <Ionicons name="checkmark" size={20} color="#007AFF" />}
-            </TouchableOpacity>
-            <View style={styles.separator} />
-            <TouchableOpacity
-              style={styles.pickerOption}
-              onPress={() => { setNewCategoryType('income'); setShowCategoryTypePicker(false); }}
-            >
-              <Text style={[styles.pickerOptionText, newCategoryType === 'income' && styles.pickerOptionTextSelected]}>收入</Text>
-              {newCategoryType === 'income' && <Ionicons name="checkmark" size={20} color="#007AFF" />}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
     </View>
   );
 }
@@ -803,7 +952,7 @@ const styles = StyleSheet.create({
   balanceText: { fontSize: 70, fontWeight: '800' },
 
   inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
-  input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15 },
+  input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15, color: '#333' },
 
   // ✨ 交易操作區塊樣式
   buttonContainer: { width: '90%', paddingBottom: 5, alignSelf: 'center' },
@@ -900,7 +1049,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 10,
-    marginRight: 5
+    marginRight: 5,
+    zIndex: 20,
   },
   customPickerText: { fontSize: 16, color: '#333' },
 
@@ -916,6 +1066,12 @@ const styles = StyleSheet.create({
   categoryPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e0e0', borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 },
   categoryPillText: { fontSize: 14 },
 
+  // Sort Mode Styles
+  sortListContainer: { marginBottom: 10 },
+  sortListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  sortListItemText: { fontSize: 16, color: '#333' },
+  sortButton: { paddingHorizontal: 5 },
+
   // --- 帳本選擇 Modal 樣式 ---
   accountSelectModalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%', maxHeight: '80%' },
   accountSelectModalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
@@ -923,4 +1079,10 @@ const styles = StyleSheet.create({
   accountSelectItemSelected: { backgroundColor: '#E8F4FF', borderLeftWidth: 4, borderLeftColor: '#007AFF' },
   accountSelectItemText: { fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center' },
   accountSelectItemTextSelected: { color: '#007AFF' },
+
+  // iOS Picker Styles
+  iosModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
+  iosPickerContent: { backgroundColor: 'white', width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
+  iosPickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  iosPickerDoneText: { fontSize: 18, color: '#007AFF', fontWeight: 'bold' },
 });
