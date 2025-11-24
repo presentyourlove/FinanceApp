@@ -992,12 +992,9 @@ const styles = StyleSheet.create({
   pickerDisplayText: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
   pickerItem: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
   title: { paddingTop: 25, fontSize: 28, fontWeight: 'normal', color: '#666', marginBottom: 5, textAlign: 'center' },
-  balanceText: { fontSize: 70, fontWeight: '800', textAlign: 'center' },
-
+  balanceText: { fontSize: 60, fontWeight: '700', textAlign: 'center', paddingHorizontal: 35 },
   inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
   input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15, color: '#333' },
-
-  // ✨ 交易操作區塊樣式
   buttonContainer: { width: '90%', paddingBottom: 5, alignSelf: 'center' },
   transactionRow: {
     flexDirection: 'row',
