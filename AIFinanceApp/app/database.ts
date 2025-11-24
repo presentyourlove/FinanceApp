@@ -13,7 +13,7 @@ const db = SQLite.openDatabaseSync('finance_app.db');
  * @param params 參數陣列
  * @returns 包含 insertId 或 changes 的結果物件 (類型為 any)
  */
-const runSqlSync = (sql: string, params: any[] = []): any => { 
+const runSqlSync = (sql: string, params: any[] = []): any => {
   try {
     // 使用 runSync 執行單條 SQL 語句
     return db.runSync(sql, params);
@@ -51,9 +51,22 @@ export const initDatabase = async () => {
         id INTEGER PRIMARY KEY NOT NULL, 
         name TEXT NOT NULL, 
         initialBalance REAL NOT NULL, 
-        currentBalance REAL NOT NULL
+        currentBalance REAL NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'TWD'
       );`
     );
+
+    // 嘗試為舊資料庫新增 currency 欄位 (如果不存在)
+    try {
+      const checkColumn = getRowsSync("PRAGMA table_info(accounts);");
+      const hasCurrency = checkColumn.some((col: any) => col.name === 'currency');
+      if (!hasCurrency) {
+        runSqlSync(`ALTER TABLE accounts ADD COLUMN currency TEXT NOT NULL DEFAULT 'TWD';`);
+        console.log("Added currency column to accounts table.");
+      }
+    } catch (e) {
+      console.log("Column check/alter failed (might already exist):", e);
+    }
 
     // 交易表格 (transactions)
     runSqlSync(
@@ -70,7 +83,7 @@ export const initDatabase = async () => {
     );
 
     console.log("Database initialized successfully (Sync Mode).");
-    
+
     // 檢查並插入初始數據
     await checkAndInsertInitialData();
 
@@ -87,23 +100,23 @@ const checkAndInsertInitialData = async () => {
   try {
     // 執行查詢並返回結果行陣列
     const res = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`);
-    
+
     // 修正：res 現在是行陣列，不再需要 .rows 屬性
     const count = res && res.length > 0 ? res[0].count : 0;
 
     if (count === 0) {
       console.log("No initial accounts found. Inserting default data...");
-      
+
       const initialAccounts = [
-        { name: '錢包', initialBalance: 500, currentBalance: 500 },
-        { name: '銀行戶口', initialBalance: 50000, currentBalance: 50000 },
-        { name: '信用卡', initialBalance: 0, currentBalance: 0 },
+        { name: '錢包', initialBalance: 500, currentBalance: 500, currency: 'TWD' },
+        { name: '銀行戶口', initialBalance: 50000, currentBalance: 50000, currency: 'TWD' },
+        { name: '信用卡', initialBalance: 0, currentBalance: 0, currency: 'TWD' },
       ];
-      
+
       for (const acc of initialAccounts) {
         runSqlSync(
-          `INSERT INTO accounts (name, initialBalance, currentBalance) VALUES (?, ?, ?);`,
-          [acc.name, acc.initialBalance, acc.currentBalance]
+          `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
+          [acc.name, acc.initialBalance, acc.currentBalance, acc.currency]
         );
       }
       console.log("Default accounts inserted.");
@@ -123,16 +136,17 @@ interface Account {
   name: string;
   initialBalance: number;
   currentBalance: number;
+  currency: string;
 }
 
 interface Transaction {
-  id: number; 
-  amount: number; 
-  type: 'income' | 'expense' | 'transfer'; 
+  id: number;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
   date: string; // 存為字串
   description: string;
-  accountId: number; 
-  targetAccountId?: number; 
+  accountId: number;
+  targetAccountId?: number;
 }
 
 
@@ -142,12 +156,13 @@ interface Transaction {
 export const getAccounts = async (): Promise<Account[]> => {
   // 返回行陣列
   const rows = getRowsSync('SELECT * FROM accounts ORDER BY id ASC;');
-  
+
   return rows.map((row: any) => ({
     id: row.id,
     name: row.name,
     initialBalance: row.initialBalance,
     currentBalance: row.currentBalance,
+    currency: row.currency || 'TWD',
   }));
 };
 
@@ -166,14 +181,14 @@ export const updateAccountBalanceDB = async (id: number, newBalance: number) => 
  */
 export const addTransactionDB = async (t: Omit<Transaction, 'id' | 'date'> & { date: Date }) => {
   const dateString = t.date.toISOString();
-  
+
   const res = runSqlSync(
     `INSERT INTO transactions (amount, type, date, description, accountId, targetAccountId) 
      VALUES (?, ?, ?, ?, ?, ?);`,
     [t.amount, t.type, dateString, t.description, t.accountId, t.targetAccountId]
   );
   // runSync 的結果物件中包含 lastInsertRowId
-  return res && res.lastInsertRowId || Date.now(); 
+  return res && res.lastInsertRowId || Date.now();
 };
 
 /**
@@ -185,7 +200,7 @@ export const getTransactionsByAccountDB = async (accountId: number): Promise<Tra
     `SELECT * FROM transactions WHERE accountId = ? OR targetAccountId = ? ORDER BY date DESC;`,
     [accountId, accountId]
   );
-  
+
   return rows.map((row: any) => ({
     id: row.id,
     amount: row.amount,
@@ -200,10 +215,10 @@ export const getTransactionsByAccountDB = async (accountId: number): Promise<Tra
 /**
  * 新增一個帳本
  */
-export const addAccountDB = async (name: string, initialBalance: number) => {
+export const addAccountDB = async (name: string, initialBalance: number, currency: string = 'TWD') => {
   const res = runSqlSync(
-    `INSERT INTO accounts (name, initialBalance, currentBalance) VALUES (?, ?, ?);`,
-    [name, initialBalance, initialBalance]
+    `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
+    [name, initialBalance, initialBalance, currency]
   );
   return res && res.lastInsertRowId || Date.now();
 };
@@ -212,22 +227,22 @@ export const addAccountDB = async (name: string, initialBalance: number) => {
  * 刪除一個帳本 
  */
 export const deleteAccountDB = async (id: number) => {
-    // 檢查是否有相關交易 (檢查 accountId 或 targetAccountId)
-    const transactionCheck = getRowsSync(
-        `SELECT COUNT(id) as count FROM transactions WHERE accountId = ? OR targetAccountId = ?;`,
-        [id, id]
-    );
-    // 修正：transactionCheck 是行陣列
-    const count = transactionCheck && transactionCheck.length > 0 ? transactionCheck[0].count : 0;
-    
-    if (count > 0) {
-        throw new Error("Account has transactions and cannot be deleted.");
-    }
+  // 檢查是否有相關交易 (檢查 accountId 或 targetAccountId)
+  const transactionCheck = getRowsSync(
+    `SELECT COUNT(id) as count FROM transactions WHERE accountId = ? OR targetAccountId = ?;`,
+    [id, id]
+  );
+  // 修正：transactionCheck 是行陣列
+  const count = transactionCheck && transactionCheck.length > 0 ? transactionCheck[0].count : 0;
 
-    runSqlSync(
-        `DELETE FROM accounts WHERE id = ?;`,
-        [id]
-    );
+  if (count > 0) {
+    throw new Error("Account has transactions and cannot be deleted.");
+  }
+
+  runSqlSync(
+    `DELETE FROM accounts WHERE id = ?;`,
+    [id]
+  );
 };
 
 // 匯出所有公開操作

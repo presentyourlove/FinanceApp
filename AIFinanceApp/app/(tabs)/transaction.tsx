@@ -12,7 +12,6 @@ import {
   Modal,
   Platform
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -29,6 +28,7 @@ interface Account {
   name: string;
   initialBalance: number;
   currentBalance: number;
+  currency: string;
 }
 
 interface Transaction {
@@ -57,7 +57,6 @@ const defaultCategories = {
 // ===================================================
 
 export default function TransactionScreen() {
-  const insets = useSafeAreaInsets();
   const [dbInitialized, setDbInitialized] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -70,18 +69,8 @@ export default function TransactionScreen() {
 
   // 彈窗狀態
   const [isTransferModalVisible, setTransferModalVisible] = useState(false);
-  const [transferAmount, setTransferAmount] = useState('');
-  const [sourceAccountId, setSourceAccountId] = useState<number | undefined>(undefined);
-  const [targetAccountId, setTargetAccountId] = useState<number | undefined>(undefined);
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false);
-  const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountInitialBalance, setNewAccountInitialBalance] = useState('');
-
-  // 自定義分類相關狀態
-  const [newCategoryInput, setNewCategoryInput] = useState('');
-  const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('expense');
-  const [isSorting, setIsSorting] = useState(false); // 排序模式狀態
 
   // 日期時間選擇狀態
   const [transactionDate, setTransactionDate] = useState(new Date());
@@ -128,13 +117,6 @@ export default function TransactionScreen() {
         if (loadedAccounts.length > 0) {
           const initialId = loadedAccounts[0].id;
           setSelectedAccountId(initialId);
-          setSourceAccountId(initialId);
-
-          if (loadedAccounts.length > 1) {
-            setTargetAccountId(loadedAccounts[1].id);
-          } else {
-            setTargetAccountId(undefined);
-          }
         }
       } catch (e) {
         console.error("Failed to load initial data:", e);
@@ -175,21 +157,7 @@ export default function TransactionScreen() {
     }
   }, [selectedAccountId]);
 
-  // 篩選交易紀錄
-  const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    return transactions.filter(item => {
-      const itemDate = new Date(item.date);
-      if (filterType === 'day') {
-        return itemDate.toDateString() === now.toDateString();
-      } else if (filterType === 'month') {
-        return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
-      } else if (filterType === 'year') {
-        return itemDate.getFullYear() === now.getFullYear();
-      }
-      return true; // 'all'
-    });
-  }, [transactions, filterType]);
+
 
 
   const handleTransaction = async (type: 'income' | 'expense') => {
@@ -239,21 +207,19 @@ export default function TransactionScreen() {
     }
   };
 
-  const handleTransfer = async () => {
-    const amount = parseFloat(transferAmount);
-
+  const handleTransfer = async (amount: number, sourceId: number, targetId: number) => {
     if (isNaN(amount) || amount <= 0) {
       Alert.alert("無效操作", "請輸入有效金額。");
       return;
     }
-    if (sourceAccountId === undefined || targetAccountId === undefined || sourceAccountId === targetAccountId) {
+    if (sourceId === undefined || targetId === undefined || sourceId === targetId) {
       Alert.alert("無效操作", "請確保轉出與轉入帳本不同且已選定。");
       return;
     }
 
     try {
-      const sourceAcc = accounts.find(acc => acc.id === sourceAccountId);
-      const targetAcc = accounts.find(acc => acc.id === targetAccountId);
+      const sourceAcc = accounts.find(acc => acc.id === sourceId);
+      const targetAcc = accounts.find(acc => acc.id === targetId);
 
       if (!sourceAcc || !targetAcc) throw new Error("Source or Target account not found.");
 
@@ -267,8 +233,8 @@ export default function TransactionScreen() {
       const newTargetBalance = targetAcc.currentBalance + amount;
 
       // 2. 更新資料庫中的帳本餘額 
-      await dbOperations.updateAccountBalanceDB(sourceAccountId, newSourceBalance);
-      await dbOperations.updateAccountBalanceDB(targetAccountId, newTargetBalance);
+      await dbOperations.updateAccountBalanceDB(sourceId, newSourceBalance);
+      await dbOperations.updateAccountBalanceDB(targetId, newTargetBalance);
 
       const now = new Date();
 
@@ -278,8 +244,8 @@ export default function TransactionScreen() {
         type: 'transfer',
         date: now,
         description: `轉出至 ${targetAcc.name} `,
-        accountId: sourceAccountId,
-        targetAccountId: targetAccountId,
+        accountId: sourceId,
+        targetAccountId: targetId,
       });
 
       // 4. 新增轉入交易記錄 (記錄在目標帳本的交易列表中)
@@ -288,14 +254,15 @@ export default function TransactionScreen() {
         type: 'transfer',
         date: now,
         description: `轉入自 ${sourceAcc.name} `,
-        accountId: targetAccountId,
-        targetAccountId: sourceAccountId, // 這裡的 targetAccountId 實際上是轉帳的來源 ID
+        accountId: targetId,
+        targetAccountId: sourceId, // 這裡的 targetAccountId 實際上是轉帳的來源 ID
       });
 
       // 5. 刷新 App 狀態
-      await refreshData();
+      const loadedAccounts = await dbOperations.getAccounts();
+      setAccounts(loadedAccounts);
 
-      setTransferAmount('');
+
       setTransferModalVisible(false);
       Alert.alert("成功", `NT$ ${amount.toFixed(2)} 已從 ${sourceAcc.name} 轉出至 ${targetAcc.name}。`);
 
@@ -307,39 +274,32 @@ export default function TransactionScreen() {
 
   // --- 自定義設定邏輯 ---
 
-  const handleAddAccount = async () => {
-    const initialBalance = parseFloat(newAccountInitialBalance || '0');
-
-    if (!newAccountName) {
+  const handleAddAccount = async (name: string, balance: number, currency: string) => {
+    if (!name) {
       Alert.alert("名稱無效", "請輸入新的帳本名稱。");
       return;
     }
-    if (isNaN(initialBalance)) {
+    if (isNaN(balance)) {
       Alert.alert("金額無效", "請輸入有效的初始資金。");
       return;
     }
 
     try {
-      const newId = await dbOperations.addAccountDB(newAccountName, initialBalance);
+      const newId = await dbOperations.addAccountDB(name, balance, currency);
 
       // 刷新 App 狀態
       const loadedAccounts = await dbOperations.getAccounts();
       setAccounts(loadedAccounts);
 
-      // 設置選定的帳本和轉帳目標
+      // 設置選定的帳本
       if (selectedAccountId === undefined) {
         setSelectedAccountId(newId);
-        setSourceAccountId(newId);
-      }
-      if (accounts.length === 1 && loadedAccounts.length > 1) {
-        // 如果這是第二個帳本，將其設為目標帳本
-        setTargetAccountId(newId);
       }
 
-      setNewAccountName('');
-      setNewAccountInitialBalance('');
-      Alert.alert("成功", `帳本「${newAccountName}」已新增。`);
-    } catch (error) {
+
+      setAccountSelectModalVisible(false);
+      Alert.alert("成功", `帳本「${name}」已新增。`);
+    } catch {
       Alert.alert("新增失敗", "新增帳本時發生錯誤。");
     }
   };
@@ -361,12 +321,8 @@ export default function TransactionScreen() {
       if (selectedAccountId === id) {
         const newSelectedId = loadedAccounts[0]?.id;
         setSelectedAccountId(newSelectedId);
-        setSourceAccountId(newSelectedId);
       }
-      // 更新轉帳目標ID
-      if (targetAccountId === id) {
-        setTargetAccountId(loadedAccounts.length > 1 ? loadedAccounts.find(acc => acc.id !== selectedAccountId)?.id : undefined);
-      }
+
 
       Alert.alert("成功", "帳本已刪除。");
     } catch (error: any) {
@@ -379,17 +335,36 @@ export default function TransactionScreen() {
   };
 
 
-  const handleAddCategory = () => {
-    if (!newCategoryInput) return;
-
+  const handleAddCategory = (type: 'income' | 'expense', name: string) => {
+    if (!name) return;
     setCategories(prev => ({
       ...prev,
-      [newCategoryType]: [...prev[newCategoryType], newCategoryInput],
+      [type]: [...prev[type], name],
     }));
-
-    setNewCategoryInput('');
-    Alert.alert("成功", `備註「${newCategoryInput}」已加入${newCategoryType === 'income' ? '收入' : '支出'} 列表！`);
+    Alert.alert("成功", `備註「${name}」已加入${type === 'income' ? '收入' : '支出'} 列表！`);
   };
+
+
+
+  const filterTransactions = useCallback(() => {
+    if (!selectedAccountId) return [];
+
+    let filtered = transactions.filter(t => t.accountId === selectedAccountId || (t.type === 'transfer' && t.targetAccountId === selectedAccountId));
+
+    const now = new Date();
+    if (filterType === 'day') {
+      filtered = filtered.filter(t => new Date(t.date).toDateString() === now.toDateString());
+    } else if (filterType === 'month') {
+      filtered = filtered.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (filterType === 'year') {
+      filtered = filtered.filter(t => new Date(t.date).getFullYear() === now.getFullYear());
+    }
+
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, selectedAccountId, filterType]);
 
   const handleDeleteCategory = (type: 'income' | 'expense', category: string) => {
     setCategories(prev => ({
@@ -450,6 +425,9 @@ export default function TransactionScreen() {
     const dateObject = new Date(item.date);
 
 
+    // 取得該帳本的幣別
+    const accountCurrency = accounts.find(acc => acc.id === item.accountId)?.currency || 'TWD';
+
     return (
       <View style={styles.listItem}>
         <View style={styles.listItemTextContainer}>
@@ -461,7 +439,7 @@ export default function TransactionScreen() {
           </Text>
         </View>
         <Text style={[styles.listItemAmount, { color: amountColor }]}>
-          {amountSign} NT$ {item.amount.toFixed(2)}
+          {amountSign} {accountCurrency} {item.amount.toFixed(2)}
         </Text>
       </View>
     );
@@ -486,15 +464,12 @@ export default function TransactionScreen() {
           numberOfLines={1}
           adjustsFontSizeToFit={true}
         >
-          NT$ {currentBalance.toFixed(2)}
+          {accounts.find(acc => acc.id === selectedAccountId)?.currency || 'TWD'} {currentBalance.toFixed(2)}
         </Text>
       </View>
 
       {/* 輸入框與按鈕區 */}
       <View style={styles.inputArea}>
-
-        {/* 1. 金額/備註輸入框 (頂部) */}
-
         {/* 日期時間選擇區 */}
         <View style={{ flexDirection: 'row', width: '90%', marginBottom: 10, justifyContent: 'space-between' }}>
           <TouchableOpacity
@@ -519,7 +494,6 @@ export default function TransactionScreen() {
         </View>
 
         {/* DateTimePicker Components */}
-        {/* iOS Date Picker */}
         {Platform.OS === 'ios' && showDatePicker && (
           <Modal transparent={true} animationType="slide" visible={showDatePicker}>
             <View style={styles.iosModalOverlay}>
@@ -540,7 +514,6 @@ export default function TransactionScreen() {
             </View>
           </Modal>
         )}
-        {/* Android Date Picker */}
         {Platform.OS === 'android' && showDatePicker && (
           <DateTimePicker
             value={transactionDate}
@@ -550,7 +523,6 @@ export default function TransactionScreen() {
           />
         )}
 
-        {/* iOS Time Picker */}
         {Platform.OS === 'ios' && showTimePicker && (
           <Modal transparent={true} animationType="slide" visible={showTimePicker}>
             <View style={styles.iosModalOverlay}>
@@ -571,7 +543,6 @@ export default function TransactionScreen() {
             </View>
           </Modal>
         )}
-        {/* Android Time Picker */}
         {Platform.OS === 'android' && showTimePicker && (
           <DateTimePicker
             value={transactionDate}
@@ -599,8 +570,7 @@ export default function TransactionScreen() {
 
         {/* 2. 交易操作區 */}
         <View style={styles.buttonContainer}>
-
-          {/* 收入行：按鈕 + 備註 */}
+          {/* 收入行 */}
           <View style={styles.transactionRow}>
             <TouchableOpacity
               style={[styles.mainButton, styles.incomeButton, styles.autoWidthButton]}
@@ -621,7 +591,7 @@ export default function TransactionScreen() {
             </View>
           </View>
 
-          {/* 支出行：按鈕 + 備註 */}
+          {/* 支出行 */}
           <View style={[styles.transactionRow, { marginTop: 8 }]}>
             <TouchableOpacity
               style={[styles.mainButton, styles.expenseButton, styles.autoWidthButton]}
@@ -642,7 +612,7 @@ export default function TransactionScreen() {
             </View>
           </View>
 
-          {/* 轉帳行：單獨按鈕 */}
+          {/* 轉帳行 */}
           <TouchableOpacity
             style={[styles.mainButton, styles.transferButton, { width: '100%', alignSelf: 'center', marginTop: 15, height: 45 }]}
             onPress={() => setTransferModalVisible(true)}
@@ -650,7 +620,6 @@ export default function TransactionScreen() {
             <Text style={styles.buttonText}>轉帳</Text>
           </TouchableOpacity>
         </View>
-
       </View>
 
       {/* 交易清單顯示區 */}
@@ -684,472 +653,543 @@ export default function TransactionScreen() {
     </>
   );
 
-
-
-  // ---------------------------------------------------
-  // 主介面渲染
-  // ---------------------------------------------------
   return (
     <View style={styles.container}>
       <FlatList
-        style={styles.list}
-        contentContainerStyle={{
-          paddingBottom: insets.bottom + 20,
-        }}
-        scrollEnabled={true}
-        data={filteredTransactions}
-        keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
-        renderItem={({ item }) => renderItem({ item })}
-        ListHeaderComponent={renderListHeader()}
-        ListEmptyComponent={() => <Text style={styles.emptyText}>此帳本目前沒有交易記錄</Text>}
+        data={filterTransactions()}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={<Text style={styles.emptyText}>無交易紀錄</Text>}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardDismissMode="on-drag"
       />
 
-      {/* 彈窗渲染 */}
-      {/* TransferModal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <TransferModal
         visible={isTransferModalVisible}
-        onRequestClose={() => setTransferModalVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>帳本間轉帳</Text>
+        onClose={() => setTransferModalVisible(false)}
+        onTransfer={handleTransfer}
+        accounts={accounts}
+      />
 
-            <View style={styles.transferRow}>
-              <Text style={styles.transferLabel}>轉出帳本:</Text>
-              <Picker
-                selectedValue={sourceAccountId}
-                onValueChange={(itemValue: number) => setSourceAccountId(itemValue)}
-                style={styles.transferPicker}
-              >
-                {accounts.map(acc => (
-                  <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
-                ))}
-              </Picker>
-            </View>
-
-            <View style={styles.transferRow}>
-              <Text style={styles.transferLabel}>轉入帳本:</Text>
-              <Picker
-                selectedValue={targetAccountId}
-                onValueChange={(itemValue: number) => setTargetAccountId(itemValue)}
-                style={styles.transferPicker}
-              >
-                {accounts.map(acc => (
-                  <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
-                ))}
-              </Picker>
-            </View>
-
-            <TextInput
-              style={[styles.input, { width: '100%', marginVertical: 15 }]}
-              placeholder="轉帳金額"
-              keyboardType="numeric"
-              value={transferAmount}
-              onChangeText={setTransferAmount}
-            />
-
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.modalCloseButton]}
-                onPress={() => setTransferModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.modalConfirmButton]}
-                onPress={handleTransfer}
-              >
-                <Text style={styles.buttonText}>確認轉帳</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* SettingsModal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <SettingsModal
         visible={isSettingsModalVisible}
-        onRequestClose={() => setSettingsModalVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.settingsModalView}>
-            <Text style={styles.modalTitle}>自定義設定</Text>
-            <ScrollView style={{ maxHeight: 500 }} keyboardShouldPersistTaps="handled">
+        onClose={() => setSettingsModalVisible(false)}
+        categories={categories}
+        onAddCategory={handleAddCategory}
+        onDeleteCategory={handleDeleteCategory}
+        onMoveCategory={moveCategory}
+        onDeleteAccount={handleDeleteAccount}
+        onAddAccount={handleAddAccount}
+        accounts={accounts}
+      />
 
-              {/* A. 帳本管理 */}
-              <Text style={styles.settingSectionTitle}>A. 帳本管理</Text>
-              <View style={styles.settingsSection}>
-                {/* 新增帳本輸入區 */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1, marginRight: 5 }]}
-                    placeholder="新帳本名稱"
-                    placeholderTextColor="#666"
-                    value={newAccountName}
-                    onChangeText={setNewAccountName}
-                  />
-                  <TextInput
-                    style={[styles.input, { width: '30%', marginRight: 5 }]}
-                    placeholder="初始資金"
-                    placeholderTextColor="#666"
-                    keyboardType="numeric"
-                    value={newAccountInitialBalance}
-                    onChangeText={setNewAccountInitialBalance}
-                  />
-                  <TouchableOpacity style={styles.addButton} onPress={handleAddAccount}>
-                    <Ionicons name="add-circle" size={24} color="#007AFF" />
-                  </TouchableOpacity>
-                </View>
-
-                {accounts.map(acc => (
-                  <View key={acc.id} style={styles.settingListItem}>
-                    <Text style={styles.settingItemText}>{acc.name} (NT$ {acc.currentBalance.toFixed(0)})</Text>
-                    <TouchableOpacity onPress={() => handleDeleteAccount(acc.id)}>
-                      <Ionicons name="trash-bin-outline" size={20} color="#FF3B30" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-
-              {/* B. 常用備註管理 */}
-              <Text style={styles.settingSectionTitle}>B. 常用備註管理 (本地儲存)</Text>
-              <View style={styles.settingsSection}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, zIndex: 10 }}>
-
-                  {/* 自定義切換按鈕 (取代 Dropdown) */}
-                  <TouchableOpacity
-                    style={[
-                      styles.customPickerButton,
-                      {
-                        backgroundColor: newCategoryType === 'expense' ? '#FFF0F0' : '#F0FFF0',
-                        borderColor: newCategoryType === 'expense' ? '#FF3B30' : '#4CD964'
-                      }
-                    ]}
-                    onPress={() => setNewCategoryType(prev => prev === 'expense' ? 'income' : 'expense')}
-                  >
-                    <Text style={[
-                      styles.customPickerText,
-                      { color: newCategoryType === 'expense' ? '#FF3B30' : '#4CD964', fontWeight: 'bold' }
-                    ]}>
-                      {newCategoryType === 'expense' ? '支出' : '收入'}
-                    </Text>
-                    <Ionicons name="swap-horizontal" size={16} color={newCategoryType === 'expense' ? '#FF3B30' : '#4CD964'} />
-                  </TouchableOpacity>
-
-                  <TextInput
-                    style={[styles.input, { flex: 1, marginHorizontal: 5 }]}
-                    placeholder="新備註"
-                    placeholderTextColor="#666"
-                    value={newCategoryInput}
-                    onChangeText={setNewCategoryInput}
-                  />
-                  <TouchableOpacity style={styles.addButton} onPress={handleAddCategory}>
-                    <Ionicons name="add-circle" size={30} color="#4CD964" />
-                  </TouchableOpacity>
-
-                  {/* 排序按鈕 */}
-                  <TouchableOpacity
-                    style={[styles.addButton, { marginLeft: 10 }]}
-                    onPress={() => setIsSorting(!isSorting)}
-                  >
-                    <Ionicons name={isSorting ? "checkmark-circle" : "reorder-four"} size={30} color={isSorting ? "#007AFF" : "#666"} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* 顯示支出備註 */}
-                <Text style={styles.settingSubtitle}>- 支出備註</Text>
-                {isSorting ? (
-                  <View style={styles.sortListContainer}>
-                    {categories.expense.map((cat, index) => (
-                      <View key={index} style={styles.sortListItem}>
-                        <Text style={styles.sortListItemText}>{cat}</Text>
-                        <View style={{ flexDirection: 'row' }}>
-                          <TouchableOpacity onPress={() => moveCategory('expense', index, 'up')} style={styles.sortButton}>
-                            <Ionicons name="arrow-up-circle" size={24} color={index === 0 ? "#ccc" : "#007AFF"} />
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => moveCategory('expense', index, 'down')} style={styles.sortButton}>
-                            <Ionicons name="arrow-down-circle" size={24} color={index === categories.expense.length - 1 ? "#ccc" : "#007AFF"} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.categoryListRow}>
-                    {categories.expense.map((cat, index) => (
-                      <View key={index} style={styles.categoryPill}>
-                        <Text style={styles.categoryPillText}>{cat}</Text>
-                        <TouchableOpacity onPress={() => handleDeleteCategory('expense', cat)} style={{ marginLeft: 5 }}>
-                          <Ionicons name="close-circle-outline" size={16} color="#333" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* 顯示收入備註 */}
-                <Text style={styles.settingSubtitle}>- 收入備註</Text>
-                {isSorting ? (
-                  <View style={styles.sortListContainer}>
-                    {categories.income.map((cat, index) => (
-                      <View key={index} style={styles.sortListItem}>
-                        <Text style={styles.sortListItemText}>{cat}</Text>
-                        <View style={{ flexDirection: 'row' }}>
-                          <TouchableOpacity onPress={() => moveCategory('income', index, 'up')} style={styles.sortButton}>
-                            <Ionicons name="arrow-up-circle" size={24} color={index === 0 ? "#ccc" : "#007AFF"} />
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => moveCategory('income', index, 'down')} style={styles.sortButton}>
-                            <Ionicons name="arrow-down-circle" size={24} color={index === categories.income.length - 1 ? "#ccc" : "#007AFF"} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.categoryListRow}>
-                    {categories.income.map((cat, index) => (
-                      <View key={index} style={styles.categoryPill}>
-                        <Text style={styles.categoryPillText}>{cat}</Text>
-                        <TouchableOpacity onPress={() => handleDeleteCategory('income', cat)} style={{ marginLeft: 5 }}>
-                          <Ionicons name="close-circle-outline" size={16} color="#333" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.button, styles.modalCloseButton, { marginTop: 15, alignSelf: 'center' }]}
-              onPress={() => setSettingsModalVisible(false)}
-            >
-              <Text style={styles.buttonText}>關閉設定</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* AccountSelectModal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AccountSelectModal
         visible={isAccountSelectModalVisible}
-        onRequestClose={() => setAccountSelectModalVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.accountSelectModalView}>
-            <Text style={styles.accountSelectModalTitle}>選擇帳本</Text>
-            <ScrollView style={{ maxHeight: 300 }}>
-              {accounts.map(account => (
-                <TouchableOpacity
-                  key={account.id}
-                  style={[
-                    styles.accountSelectItem,
-                    selectedAccountId === account.id && styles.accountSelectItemSelected
-                  ]}
-                  onPress={() => {
-                    setSelectedAccountId(account.id);
-                    setAccountSelectModalVisible(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.accountSelectItemText,
-                    selectedAccountId === account.id && styles.accountSelectItemTextSelected
-                  ]}>
-                    {account.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.button, styles.modalCloseButton, { marginTop: 15, width: '100%' }]}
-              onPress={() => setAccountSelectModalVisible(false)}
-            >
-              <Text style={styles.buttonText}>關閉</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setAccountSelectModalVisible(false)}
+        accounts={accounts}
+        onSelectAccount={setSelectedAccountId}
+        onAddAccount={handleAddAccount}
+      />
     </View>
   );
 }
 
-// ===================================================
-// ✨ 樣式表 (Styles)
-// ===================================================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  loadingText: { fontSize: 18, color: '#007AFF' },
-  header: { alignItems: 'center', paddingTop: 75, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  picker: { width: '80%', paddingVertical: 5, marginBottom: 10, backgroundColor: '#f0f0f0', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  pickerDisplayText: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
-  pickerItem: { fontSize: 50, fontWeight: 'bold', color: '#333', textAlign: 'center' },
-  title: { paddingTop: 25, fontSize: 28, fontWeight: 'normal', color: '#666', marginBottom: 5, textAlign: 'center' },
-  balanceText: { fontSize: 60, fontWeight: '700', textAlign: 'center', paddingHorizontal: 35 },
-  inputArea: { alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', width: '100%' },
-  input: { padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 15, color: '#333' },
-  buttonContainer: { width: '90%', paddingBottom: 5, alignSelf: 'center' },
+  loadingText: { fontSize: 18, color: '#007AFF', marginTop: 10 },
+
+  // Header
+  header: {
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 1,
+  },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+  pickerDisplayText: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 5 },
+  title: { fontSize: 14, color: '#8E8E93', marginBottom: 5, letterSpacing: 1 },
+  balanceText: { fontSize: 40, fontWeight: '800', color: '#333', letterSpacing: 0.5 },
+
+  // Input Area
+  inputArea: {
+    padding: 20,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  input: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    fontSize: 16,
+    color: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+
+  // Buttons
+  buttonContainer: { marginTop: 10, width: '100%' },
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    minHeight: 50,
+    marginBottom: 12,
   },
   mainButton: {
-    padding: 10,
-    borderRadius: 8,
+    width: 100,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 45,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  autoWidthButton: {
-    paddingHorizontal: 15,
-    marginRight: 10,
-  },
+  incomeButton: { backgroundColor: '#34C759' },
+  expenseButton: { backgroundColor: '#FF3B30' },
+  transferButton: { backgroundColor: '#FF9500' },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  autoWidthButton: { width: 'auto', minWidth: 100, paddingHorizontal: 15 },
+
+  // Categories
   categoryZone: {
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingTop: 0,
+    marginLeft: 12,
   },
   categoryButton: {
-    backgroundColor: '#e0e0e0',
-    borderRadius: 15,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
     marginRight: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
   },
-  categoryText: { fontSize: 14, color: '#333' },
+  categoryText: { fontSize: 13, color: '#666', fontWeight: '500' },
 
-  // 顏色樣式
-  incomeButton: { backgroundColor: '#4CD964' },
-  expenseButton: { backgroundColor: '#FF3B30' },
-  transferButton: { backgroundColor: '#FF9500' },
-
-  // 通用 button 樣式 
-  button: {
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
-  listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 15, backgroundColor: '#eee' },
-  listHeader: { fontSize: 18, fontWeight: 'bold', padding: 15, color: '#333' },
-  list: { flex: 1 },
-
-  listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
-  listItemTextContainer: { flex: 1, marginRight: 10 },
-  listItemType: { fontSize: 16, fontWeight: '600', color: '#333' },
-  listItemDate: { fontSize: 12, color: '#999', marginTop: 2 },
-  listItemAmount: { fontSize: 18, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#999' },
-
-  // --- Modal 樣式 ---
-  centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 35, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%' },
-  settingsModalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '95%' },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-
-  transferRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginVertical: 8 },
-  transferLabel: { fontSize: 16, marginRight: 10, fontWeight: '500' },
-  transferPicker: { flex: 1, height: 40, backgroundColor: '#f0f0f0', borderRadius: 8 },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20 },
-  modalCloseButton: { backgroundColor: '#8E8E93', width: '48%' },
-  modalConfirmButton: { backgroundColor: '#007AFF', width: '48%' },
-
-  // --- 設定區塊樣式 ---
-  settingSectionTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 20, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 5 },
-  settingsSection: { width: '100%', paddingHorizontal: 5, marginBottom: 15 },
-  settingListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  settingItemText: { flex: 1, fontSize: 15 },
-  addButton: { padding: 5, borderRadius: 5 },
-
-  settingSubtitle: { fontSize: 14, fontWeight: '600', marginTop: 10, marginBottom: 5 },
-
-  // Custom Picker Styles
-  customPickerButton: {
-    width: 100,
-    height: 45,
+  // List Header & Filter
+  listHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginRight: 5,
-    zIndex: 20,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
   },
-  customPickerText: { fontSize: 16, color: '#333' },
-
-  // Picker Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  pickerModalContent: { width: 200, backgroundColor: 'white', borderRadius: 10, padding: 10, elevation: 5 },
-  pickerOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20 },
-  pickerOptionText: { fontSize: 18, color: '#333' },
-  pickerOptionTextSelected: { color: '#007AFF', fontWeight: 'bold' },
-  separator: { height: 1, backgroundColor: '#eee' },
-
-  categoryListRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
-  categoryPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e0e0', borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 },
-  categoryPillText: { fontSize: 14 },
-
-  // Sort Mode Styles
-  sortListContainer: { marginBottom: 10 },
-  sortListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  sortListItemText: { fontSize: 16, color: '#333' },
-  sortButton: { paddingHorizontal: 5 },
-
-  // --- 帳本選擇 Modal 樣式 ---
-  accountSelectModalView: { margin: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%', maxHeight: '80%' },
-  accountSelectModalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
-  accountSelectItem: { paddingVertical: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', backgroundColor: '#fff' },
-  accountSelectItemSelected: { backgroundColor: '#E8F4FF', borderLeftWidth: 4, borderLeftColor: '#007AFF' },
-  accountSelectItemText: { fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center' },
-  accountSelectItemTextSelected: { color: '#007AFF' },
-
-  // iOS Picker Styles
-  iosModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
-  iosPickerContent: { backgroundColor: 'white', width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
-  iosPickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  iosPickerDoneText: { fontSize: 18, color: '#007AFF', fontWeight: 'bold' },
-
-  // Filter Styles
+  listHeader: { fontSize: 20, fontWeight: '700', color: '#333' },
   filterContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    backgroundColor: '#E5E5EA',
+    borderRadius: 10,
+    padding: 2,
+    marginHorizontal: 20,
+    marginBottom: 15,
   },
   filterButton: {
+    flex: 1,
     paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    borderRadius: 8,
   },
   filterButtonSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#666',
+  filterButtonText: { fontSize: 13, color: '#8E8E93', fontWeight: '500' },
+  filterButtonTextSelected: { color: '#333', fontWeight: '700' },
+
+  // List Item
+  listItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  filterButtonTextSelected: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  listItemTextContainer: { flex: 1 },
+  listItemType: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  listItemDate: { fontSize: 12, color: '#8E8E93' },
+  listItemAmount: { fontSize: 17, fontWeight: '700' },
+  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#8E8E93' },
+
+  // Modals
+  centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalView: { width: '90%', backgroundColor: 'white', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
+  settingsModalView: { width: '95%', maxHeight: '80%', backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
+  accountSelectModalView: { width: '90%', maxHeight: '70%', backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20, color: '#333' },
+
+  // Modal Inputs & Buttons
+  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20, gap: 10 },
+  button: { padding: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  modalCloseButton: { backgroundColor: '#E5E5EA', flex: 1 },
+  modalConfirmButton: { backgroundColor: '#007AFF', flex: 1 },
+
+  // Settings
+  settingSubtitle: { fontSize: 16, fontWeight: '700', color: '#333', marginTop: 20, marginBottom: 10 },
+  settingListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
+  settingItemText: { fontSize: 16, color: '#333' },
+
+  // Account Select
+  accountSelectItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
+  accountSelectItemText: { fontSize: 16, color: '#333', textAlign: 'center' },
+
+  // Date Picker
+  iosModalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
+  iosPickerContent: { backgroundColor: '#fff', paddingBottom: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  iosPickerHeader: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'flex-end' },
+  iosPickerDoneText: { fontSize: 16, color: '#007AFF', fontWeight: '600' },
+
+  // Transfer Modal
+  transferPicker: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 10 },
 });
+
+function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
+  const [amount, setAmount] = useState('');
+  const [sourceId, setSourceId] = useState<number | undefined>(undefined);
+  const [targetId, setTargetId] = useState<number | undefined>(undefined);
+
+  const handleSubmit = () => {
+    if (!amount || !sourceId || !targetId) {
+      Alert.alert('錯誤', '請填寫完整資訊');
+      return;
+    }
+    onTransfer(parseFloat(amount), sourceId, targetId);
+    setAmount('');
+    setSourceId(undefined);
+    setTargetId(undefined);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.centeredView}>
+        <View style={styles.modalView}>
+          <Text style={styles.modalTitle}>轉帳</Text>
+          <TextInput
+            style={[styles.input, { width: '100%', marginBottom: 15 }]}
+            placeholder="金額"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={setAmount}
+          />
+          <View style={{ width: '100%', marginBottom: 10 }}>
+            <Text>從:</Text>
+            <View style={styles.transferPicker}>
+              <Picker selectedValue={sourceId} onValueChange={setSourceId}>
+                <Picker.Item label="請選擇" value={undefined} />
+                {accounts.map((acc: any) => <Picker.Item key={acc.id} label={acc.name} value={acc.id} />)}
+              </Picker>
+            </View>
+          </View>
+          <View style={{ width: '100%', marginBottom: 20 }}>
+            <Text>到:</Text>
+            <View style={styles.transferPicker}>
+              <Picker selectedValue={targetId} onValueChange={setTargetId}>
+                <Picker.Item label="請選擇" value={undefined} />
+                {accounts.map((acc: any) => <Picker.Item key={acc.id} label={acc.name} value={acc.id} />)}
+              </Picker>
+            </View>
+          </View>
+
+          <View style={styles.modalButtonContainer}>
+            <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}>
+              <Text style={styles.buttonText}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}>
+              <Text style={styles.buttonText}>確認</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SettingsModal({ visible, onClose, categories, onAddCategory, onDeleteCategory, onMoveCategory, onDeleteAccount, onAddAccount, accounts }: any) {
+  const [newCat, setNewCat] = useState('');
+  const [catType, setCatType] = useState<'income' | 'expense'>('expense');
+  const [manageMode, setManageMode] = useState<'category' | 'account'>('category');
+
+  // 新增帳本狀態
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccBalance, setNewAccBalance] = useState('');
+  const [newAccCurrency, setNewAccCurrency] = useState('TWD');
+  const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.centeredView}>
+        <View style={styles.settingsModalView}>
+          <Text style={styles.modalTitle}>設定</Text>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 15 }}>
+            <TouchableOpacity onPress={() => setManageMode('category')} style={{ padding: 10, borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: '#007AFF' }}>
+              <Text style={{ color: manageMode === 'category' ? '#007AFF' : '#666' }}>分類管理</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setManageMode('account')} style={{ padding: 10, borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: '#007AFF' }}>
+              <Text style={{ color: manageMode === 'account' ? '#007AFF' : '#666' }}>帳本管理</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ maxHeight: 400 }}>
+            {manageMode === 'category' ? (
+              <>
+                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+                  <TouchableOpacity onPress={() => setCatType('expense')} style={[styles.button, { backgroundColor: catType === 'expense' ? '#FF3B30' : '#ddd', marginRight: 10, flex: 1 }]}>
+                    <Text style={styles.buttonText}>支出</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setCatType('income')} style={[styles.button, { backgroundColor: catType === 'income' ? '#4CD964' : '#ddd', flex: 1 }]}>
+                    <Text style={styles.buttonText}>收入</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+                  <TextInput style={[styles.input, { flex: 1, marginRight: 10 }]} placeholder="新分類名稱" value={newCat} onChangeText={setNewCat} />
+                  <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF' }]} onPress={() => { onAddCategory(catType, newCat); setNewCat(''); }}>
+                    <Text style={styles.buttonText}>新增</Text>
+                  </TouchableOpacity>
+                </View>
+                {categories[catType].map((cat: string, index: number) => (
+                  <View key={index} style={styles.settingListItem}>
+                    <Text style={styles.settingItemText}>{cat}</Text>
+                    <View style={{ flexDirection: 'row' }}>
+                      <TouchableOpacity onPress={() => onMoveCategory(catType, index, 'up')}><Ionicons name="arrow-up" size={20} color="#666" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => onMoveCategory(catType, index, 'down')}><Ionicons name="arrow-down" size={20} color="#666" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => onDeleteCategory(catType, cat)}><Ionicons name="trash" size={20} color="red" /></TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <>
+                <View style={{ marginBottom: 20, padding: 10, backgroundColor: '#f9f9f9', borderRadius: 10 }}>
+                  <Text style={styles.settingSubtitle}>新增帳本</Text>
+                  <TextInput
+                    style={[styles.input, { width: '100%', marginBottom: 10, color: '#333' }]}
+                    placeholder="帳本名稱"
+                    placeholderTextColor="#666"
+                    value={newAccName}
+                    onChangeText={setNewAccName}
+                  />
+                  <TextInput
+                    style={[styles.input, { width: '100%', marginBottom: 10, color: '#333' }]}
+                    placeholder="初始餘額"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                    value={newAccBalance}
+                    onChangeText={setNewAccBalance}
+                  />
+
+                  {/* Custom Dropdown for Currency */}
+                  <View style={{ width: '100%', marginBottom: 10, zIndex: 1000 }}>
+                    <TouchableOpacity
+                      style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }]}
+                      onPress={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
+                    >
+                      <Text style={{ color: '#333' }}>
+                        {(() => {
+                          switch (newAccCurrency) {
+                            case 'TWD': return 'TWD - 新台幣';
+                            case 'USD': return 'USD - 美金';
+                            case 'JPY': return 'JPY - 日圓';
+                            case 'CNY': return 'CNY - 人民幣';
+                            case 'HKD': return 'HKD - 港幣';
+                            case 'MOP': return 'MOP - 澳門幣';
+                            case 'GBP': return 'GBP - 英鎊';
+                            case 'KRW': return 'KRW - 韓元';
+                            default: return newAccCurrency;
+                          }
+                        })()}
+                      </Text>
+                      <Ionicons name={isCurrencyDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+                    </TouchableOpacity>
+
+                    {isCurrencyDropdownOpen && (
+                      <View style={{
+                        position: 'absolute',
+                        top: 50,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        elevation: 5,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3.84,
+                        maxHeight: 200,
+                      }}>
+                        <ScrollView nestedScrollEnabled={true}>
+                          {['TWD', 'USD', 'JPY', 'CNY', 'HKD', 'MOP', 'GBP', 'KRW'].map((curr) => (
+                            <TouchableOpacity
+                              key={curr}
+                              style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                              onPress={() => {
+                                setNewAccCurrency(curr);
+                                setIsCurrencyDropdownOpen(false);
+                              }}
+                            >
+                              <Text style={{ color: '#333' }}>
+                                {(() => {
+                                  switch (curr) {
+                                    case 'TWD': return 'TWD - 新台幣';
+                                    case 'USD': return 'USD - 美金';
+                                    case 'JPY': return 'JPY - 日圓';
+                                    case 'CNY': return 'CNY - 人民幣';
+                                    case 'HKD': return 'HKD - 港幣';
+                                    case 'MOP': return 'MOP - 澳門幣';
+                                    case 'GBP': return 'GBP - 英鎊';
+                                    case 'KRW': return 'KRW - 韓元';
+                                    default: return curr;
+                                  }
+                                })()}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.button, { backgroundColor: '#4CD964' }]}
+                    onPress={() => {
+                      if (newAccName && newAccBalance) {
+                        onAddAccount(newAccName, parseFloat(newAccBalance), newAccCurrency);
+                        setNewAccName('');
+                        setNewAccBalance('');
+                        setNewAccCurrency('TWD');
+                      } else {
+                        Alert.alert('錯誤', '請輸入名稱和初始餘額');
+                      }
+                    }}
+                  >
+                    <Text style={styles.buttonText}>新增帳本</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.settingSubtitle}>現有帳本</Text>
+                {accounts?.map((acc: any) => (
+                  <View key={acc.id} style={styles.settingListItem}>
+                    <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
+                    <TouchableOpacity onPress={() => onDeleteAccount(acc.id)}>
+                      <Ionicons name="trash" size={20} color="red" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+          </ScrollView>
+
+          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 15, flex: 0, paddingVertical: 8 }]} onPress={onClose}>
+            <Text style={styles.buttonText}>關閉</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, onAddAccount }: any) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [balance, setBalance] = useState('');
+  const [currency, setCurrency] = useState('TWD');
+
+  const handleAdd = () => {
+    onAddAccount(name, parseFloat(balance), currency);
+    setIsAdding(false);
+    setName('');
+    setBalance('');
+    setCurrency('TWD');
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.centeredView}>
+        <View style={styles.accountSelectModalView}>
+          <Text style={styles.modalTitle}>{isAdding ? '新增帳本' : '選擇帳本'}</Text>
+
+          {isAdding ? (
+            <>
+              <TextInput style={[styles.input, { width: '100%', marginBottom: 10 }]} placeholder="帳本名稱" value={name} onChangeText={setName} />
+              <TextInput style={[styles.input, { width: '100%', marginBottom: 10 }]} placeholder="初始餘額" keyboardType="numeric" value={balance} onChangeText={setBalance} />
+              <View style={{ width: '100%', marginBottom: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}>
+                <Picker selectedValue={currency} onValueChange={setCurrency}>
+                  <Picker.Item label="TWD - 新台幣" value="TWD" />
+                  <Picker.Item label="USD - 美金" value="USD" />
+                  <Picker.Item label="JPY - 日圓" value="JPY" />
+                  <Picker.Item label="CNY - 人民幣" value="CNY" />
+                  <Picker.Item label="HKD - 港幣" value="HKD" />
+                  <Picker.Item label="MOP - 澳門幣" value="MOP" />
+                  <Picker.Item label="GBP - 英鎊" value="GBP" />
+                  <Picker.Item label="KRW - 韓元" value="KRW" />
+                </Picker>
+              </View>
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={() => setIsAdding(false)}>
+                  <Text style={styles.buttonText}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleAdd}>
+                  <Text style={styles.buttonText}>新增</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <ScrollView style={{ maxHeight: 300 }}>
+                {accounts.map((acc: any) => (
+                  <TouchableOpacity key={acc.id} style={styles.accountSelectItem} onPress={() => { onSelectAccount(acc.id); onClose(); }}>
+                    <Text style={styles.accountSelectItemText}>{acc.name} ({acc.currency})</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#4CD964', marginTop: 15 }]} onPress={() => setIsAdding(true)}>
+                <Text style={styles.buttonText}>+ 新增帳本</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}>
+                <Text style={styles.buttonText}>關閉</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
