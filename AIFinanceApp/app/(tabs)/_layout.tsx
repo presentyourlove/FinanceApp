@@ -3,7 +3,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 // 使用 Ionicons 代替可能出錯的 FontAwesome
-import { Ionicons } from '@expo/vector-icons'; 
+import { Ionicons } from '@expo/vector-icons';
 
 // 定義 Tab Bar Icon 的元件
 function TabBarIcon(props: {
@@ -15,7 +15,7 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  
+
   // 由於移除了 useColorScheme，我們直接在下面設定固定顏色
 
   return (
@@ -28,26 +28,52 @@ export default function TabLayout() {
           backgroundColor: '#fff', // 底部 Tab Bar 的背景色：白色
         },
       }}>
-      
+
       {/* 💸 記錄交易頁面 - 檔案名: app/(tabs)/transaction.tsx */}
       <Tabs.Screen
-        name="transaction" 
+        name="transaction"
         options={{
-          title: '💸 記錄交易',
-          // 修正為現代 Ionicons 名稱
-          tabBarIcon: ({ color }) => <TabBarIcon name="swap-horizontal" color={color} />, 
+          title: '記帳',
+          tabBarIcon: ({ color }) => <TabBarIcon name="swap-horizontal" color={color} />,
         }}
       />
-      
+
+      {/* 💰 預算管理頁面 - 檔案名: app/(tabs)/budget.tsx */}
+      <Tabs.Screen
+        name="budget"
+        options={{
+          title: '預算',
+          tabBarIcon: ({ color }) => <TabBarIcon name="wallet-outline" color={color} />,
+        }}
+      />
+
+      {/* 🎯 存錢目標頁面 - 檔案名: app/(tabs)/goal.tsx */}
+      <Tabs.Screen
+        name="goal"
+        options={{
+          title: '目標',
+          tabBarIcon: ({ color }) => <TabBarIcon name="trophy-outline" color={color} />,
+        }}
+      />
+
+      {/* 🤖 AI 分析頁面 - 檔案名: app/(tabs)/analysis.tsx */}
+      <Tabs.Screen
+        name="analysis"
+        options={{
+          title: 'AI 分析',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bulb-outline" color={color} />,
+        }}
+      />
+
       {/* 📊 圖表分析頁面 - 檔案名: app/(tabs)/two.tsx */}
       <Tabs.Screen
         name="two"
         options={{
-          title: '📊 圖表分析',
-          tabBarIcon: ({ color }) => <TabBarIcon name="pie-chart" color={color} />,
+          title: '圖表',
+          tabBarIcon: ({ color }) => <TabBarIcon name="pie-chart-outline" color={color} />,
         }}
       />
-      
+
     </Tabs>
   );
 }

@@ -10,11 +10,14 @@ import {
   Keyboard,
   ScrollView,
   Modal,
-  Platform
+  Platform,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 引入資料庫操作 (正確路徑)
 import { dbOperations } from '../database';
@@ -57,6 +60,7 @@ const defaultCategories = {
 // ===================================================
 
 export default function TransactionScreen() {
+  const insets = useSafeAreaInsets();
   const [dbInitialized, setDbInitialized] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -72,6 +76,14 @@ export default function TransactionScreen() {
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false);
 
+  // 編輯交易狀態
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDate, setEditDate] = useState(new Date());
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+
   // 日期時間選擇狀態
   const [transactionDate, setTransactionDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -79,6 +91,8 @@ export default function TransactionScreen() {
 
   // 篩選狀態
   const [filterType, setFilterType] = useState<'all' | 'day' | 'month' | 'year'>('all');
+  const [editSelectionMode, setEditSelectionMode] = useState<'none' | 'category'>('none');
+
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -99,6 +113,15 @@ export default function TransactionScreen() {
       const newDate = new Date(transactionDate);
       newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
       setTransactionDate(newDate);
+    }
+  };
+
+  const onEditDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEditDatePicker(false);
+    }
+    if (selectedDate) {
+      setEditDate(selectedDate);
     }
   };
 
@@ -385,6 +408,106 @@ export default function TransactionScreen() {
     setCategories(prev => ({ ...prev, [type]: list }));
   };
 
+  // --- 編輯交易邏輯 ---
+
+  const openEditModal = (transaction: Transaction) => {
+    if (transaction.type === 'transfer') {
+      Alert.alert("提示", "轉帳記錄目前不支援直接編輯，請刪除後重新建立。");
+      return;
+    }
+    setEditingTransaction(transaction);
+    setEditAmount(transaction.amount.toString());
+    setEditDescription(transaction.description);
+    setEditDate(new Date(transaction.date));
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateTransaction = async () => {
+    if (!editingTransaction || !selectedAccountId) return;
+
+    const newAmount = parseFloat(editAmount);
+    if (isNaN(newAmount) || newAmount <= 0) {
+      Alert.alert("錯誤", "請輸入有效金額");
+      return;
+    }
+
+    try {
+      // 1. 還原舊交易對餘額的影響
+      const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+      if (!currentAcc) throw new Error("Account not found");
+
+      let revertedBalance = currentAcc.currentBalance;
+      if (editingTransaction.type === 'income') {
+        revertedBalance -= editingTransaction.amount;
+      } else {
+        revertedBalance += editingTransaction.amount;
+      }
+
+      // 2. 應用新交易對餘額的影響
+      let newBalance = revertedBalance;
+      if (editingTransaction.type === 'income') {
+        newBalance += newAmount;
+      } else {
+        newBalance -= newAmount;
+      }
+
+      // 3. 更新資料庫
+      await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
+      await dbOperations.updateTransactionDB(
+        editingTransaction.id,
+        newAmount,
+        editingTransaction.type,
+        editDate,
+        editDescription
+      );
+
+      setEditModalVisible(false);
+      await refreshData();
+      Alert.alert("成功", "交易已更新");
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert("錯誤", "更新失敗");
+    }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!editingTransaction || !selectedAccountId) return;
+
+    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [
+      { text: "取消", style: "cancel" },
+      {
+        text: "刪除",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // 1. 還原餘額
+            const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+            if (!currentAcc) throw new Error("Account not found");
+
+            let newBalance = currentAcc.currentBalance;
+            if (editingTransaction.type === 'income') {
+              newBalance -= editingTransaction.amount;
+            } else {
+              newBalance += editingTransaction.amount;
+            }
+
+            // 2. 更新資料庫
+            await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
+            await dbOperations.deleteTransactionDB(editingTransaction.id);
+
+            setEditModalVisible(false);
+            await refreshData();
+            Alert.alert("成功", "交易已刪除");
+          } catch (error) {
+            console.error(error);
+            Alert.alert("錯誤", "刪除失敗");
+          }
+        }
+      }
+    ]);
+  };
+
   // 渲染元件 
   const renderItem = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'income';
@@ -429,7 +552,7 @@ export default function TransactionScreen() {
     const accountCurrency = accounts.find(acc => acc.id === item.accountId)?.currency || 'TWD';
 
     return (
-      <View style={styles.listItem}>
+      <TouchableOpacity style={styles.listItem} onPress={() => openEditModal(item)}>
         <View style={styles.listItemTextContainer}>
           <Text style={[styles.listItemType, { color: isTransfer ? '#333' : '#333' }]} numberOfLines={1}>
             {descriptionText}
@@ -441,14 +564,14 @@ export default function TransactionScreen() {
         <Text style={[styles.listItemAmount, { color: amountColor }]}>
           {amountSign} {accountCurrency} {item.amount.toFixed(2)}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   };
 
   const renderListHeader = () => (
     <>
       {/* 頂部 Header 區 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.picker}
           onPress={() => setAccountSelectModalVisible(true)}
@@ -555,15 +678,15 @@ export default function TransactionScreen() {
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 10 }]}
           placeholder="請輸入金額 (例如: 500)"
-          placeholderTextColor="#999"
+          placeholderTextColor="#666"
           keyboardType="numeric"
           value={amountInput}
           onChangeText={setAmountInput}
         />
         <TextInput
           style={[styles.input, { width: '90%', marginBottom: 15 }]}
-          placeholder="請輸入備註 (例如: 午餐、薪水)"
-          placeholderTextColor="#999"
+          placeholder="請輸入類別 (例如: 午餐、薪水)"
+          placeholderTextColor="#666"
           value={descriptionInput}
           onChangeText={setDescriptionInput}
         />
@@ -653,13 +776,133 @@ export default function TransactionScreen() {
     </>
   );
 
+  const renderEditSelectionList = () => {
+    if (!editingTransaction) return null;
+    const type = editingTransaction.type === 'income' ? 'income' : 'expense';
+    const items = categories[type];
+
+    return (
+      <View style={{ width: '100%', maxHeight: 300 }}>
+        <Text style={styles.modalTitle}>請選擇類別</Text>
+        <ScrollView style={{ width: '100%' }}>
+          {items.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={{
+                width: '100%',
+                padding: 15,
+                borderBottomWidth: 1,
+                borderBottomColor: '#eee',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onPress={() => {
+                setEditDescription(cat);
+                setEditSelectionMode('none');
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>{cat}</Text>
+              {editDescription === cat && (
+                <Ionicons name="checkmark" size={20} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]}
+          onPress={() => setEditSelectionMode('none')}
+        >
+          <Text style={styles.buttonText}>取消</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderEditForm = () => (
+    <>
+      <Text style={styles.modalTitle}>編輯交易</Text>
+
+      <Text style={styles.inputLabel}>日期</Text>
+      <TouchableOpacity
+        style={[styles.input, { flexDirection: 'row', alignItems: 'center', marginBottom: 10 }]}
+        onPress={() => setShowEditDatePicker(true)}
+      >
+        <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 8 }} />
+        <Text style={{ fontSize: 16 }}>{editDate.toLocaleDateString()}</Text>
+      </TouchableOpacity>
+
+      {Platform.OS === 'ios' && showEditDatePicker && (
+        <Modal transparent={true} animationType="slide" visible={showEditDatePicker}>
+          <View style={styles.iosModalOverlay}>
+            <View style={styles.iosPickerContent}>
+              <View style={styles.iosPickerHeader}>
+                <TouchableOpacity onPress={() => setShowEditDatePicker(false)}>
+                  <Text style={styles.iosPickerDoneText}>完成</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={editDate}
+                mode="date"
+                display="spinner"
+                onChange={onEditDateChange}
+                textColor="#000"
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+      {Platform.OS === 'android' && showEditDatePicker && (
+        <DateTimePicker
+          value={editDate}
+          mode="date"
+          display="default"
+          onChange={onEditDateChange}
+        />
+      )}
+
+      <Text style={styles.inputLabel}>金額</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="金額"
+        placeholderTextColor="#666"
+        value={editAmount}
+        onChangeText={setEditAmount}
+        keyboardType="numeric"
+      />
+
+      <Text style={styles.inputLabel}>類別</Text>
+      <TouchableOpacity
+        style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+        onPress={() => setEditSelectionMode('category')}
+      >
+        <Text style={{ color: editDescription ? '#000' : '#666' }}>
+          {editDescription || '請選擇類別'}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color="#666" />
+      </TouchableOpacity>
+
+      <View style={styles.modalButtons}>
+        <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
+          <Text style={styles.buttonText}>取消</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30' }]} onPress={handleDeleteTransaction}>
+          <Text style={styles.buttonText}>刪除</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleUpdateTransaction}>
+          <Text style={styles.buttonText}>儲存</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.container}>
       <FlatList
         data={filterTransactions()}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
-        ListHeaderComponent={renderListHeader}
+        ListHeaderComponent={renderListHeader()}
         ListEmptyComponent={<Text style={styles.emptyText}>無交易紀錄</Text>}
         contentContainerStyle={{ paddingBottom: 100 }}
         keyboardDismissMode="on-drag"
@@ -689,201 +932,387 @@ export default function TransactionScreen() {
         onClose={() => setAccountSelectModalVisible(false)}
         accounts={accounts}
         onSelectAccount={setSelectedAccountId}
-        onAddAccount={handleAddAccount}
       />
+      <Modal visible={isEditModalVisible} animationType="slide" transparent={true}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+              {editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  loadingText: { fontSize: 18, color: '#007AFF', marginTop: 10 },
-
-  // Header
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
   header: {
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: 10,
+    paddingHorizontal: 20,
     paddingBottom: 20,
     backgroundColor: '#fff',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
+    alignItems: 'center',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
     elevation: 5,
-    zIndex: 1,
+    marginBottom: 15,
   },
   picker: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    marginBottom: 10,
+    marginBottom: 5,
+    padding: 5,
   },
-  pickerDisplayText: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 5 },
-  title: { fontSize: 14, color: '#8E8E93', marginBottom: 5, letterSpacing: 1 },
-  balanceText: { fontSize: 40, fontWeight: '800', color: '#333', letterSpacing: 0.5 },
-
-  // Input Area
+  pickerDisplayText: {
+    fontSize: 50,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  title: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  balanceText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginVertical: 5,
+  },
   inputArea: {
-    padding: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: '#fff',
+    marginHorizontal: 15,
+    padding: 15,
+    borderRadius: 15,
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+    marginBottom: 20,
   },
   input: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
+    height: 45,
+    borderColor: '#E5E5EA',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
     fontSize: 16,
+    backgroundColor: '#F9F9F9',
     color: '#333',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    width: '100%',
+    marginBottom: 10,
   },
-
-  // Buttons
-  buttonContainer: { marginTop: 10, width: '100%' },
+  inputLabel: {
+    alignSelf: 'flex-start',
+    marginLeft: 5,
+    marginBottom: 5,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 5,
+  },
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
   },
   mainButton: {
-    width: 100,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
+    height: 45,
+    borderRadius: 10,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
-  incomeButton: { backgroundColor: '#34C759' },
-  expenseButton: { backgroundColor: '#FF3B30' },
-  transferButton: { backgroundColor: '#FF9500' },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  autoWidthButton: { width: 'auto', minWidth: 100, paddingHorizontal: 15 },
-
-  // Categories
-  categoryZone: {
+  autoWidthButton: {
     flex: 1,
+    marginRight: 10,
+  },
+  incomeButton: {
+    backgroundColor: '#34C759',
+  },
+  expenseButton: {
+    backgroundColor: '#FF3B30',
+  },
+  transferButton: {
+    backgroundColor: '#FF9500',
+  },
+  categoryZone: {
+    flex: 2,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginLeft: 12,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   categoryButton: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#F0F0F5',
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    margin: 3,
   },
-  categoryText: { fontSize: 13, color: '#666', fontWeight: '500' },
-
-  // List Header & Filter
+  categoryText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   listHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 10,
     marginBottom: 10,
   },
-  listHeader: { fontSize: 20, fontWeight: '700', color: '#333' },
-  filterContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E5E5EA',
-    borderRadius: 10,
-    padding: 2,
-    marginHorizontal: 20,
-    marginBottom: 15,
+  listHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 6,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  filterButtonSelected: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  filterButtonText: { fontSize: 13, color: '#8E8E93', fontWeight: '500' },
-  filterButtonTextSelected: { color: '#333', fontWeight: '700' },
-
-  // List Item
   listItem: {
+    backgroundColor: '#fff',
+    padding: 15,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowRadius: 2,
     elevation: 2,
   },
-  listItemTextContainer: { flex: 1 },
-  listItemType: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
-  listItemDate: { fontSize: 12, color: '#8E8E93' },
-  listItemAmount: { fontSize: 17, fontWeight: '700' },
-  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#8E8E93' },
+  listItemTextContainer: {
+    flex: 1,
+  },
+  listItemType: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  listItemDate: {
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+  listItemAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#999',
+    marginTop: 20,
+    fontSize: 16,
+  },
 
-  // Modals
-  centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalView: { width: '90%', backgroundColor: 'white', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
-  settingsModalView: { width: '95%', maxHeight: '80%', backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
-  accountSelectModalView: { width: '90%', maxHeight: '70%', backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
-  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20, color: '#333' },
+  // Modal Styles
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    width: '85%',
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 25,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5
+  },
+  settingsModalView: {
+    width: '95%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5
+  },
+  accountSelectModalView: {
+    width: '90%',
+    maxHeight: '70%',
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 15,
+  },
+  button: {
+    borderRadius: 10,
+    padding: 10,
+    elevation: 2,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: "#8E8E93",
+  },
+  confirmButton: {
+    backgroundColor: "#007AFF",
+  },
 
-  // Modal Inputs & Buttons
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20, gap: 10 },
-  button: { padding: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  modalCloseButton: { backgroundColor: '#E5E5EA', flex: 1 },
-  modalConfirmButton: { backgroundColor: '#007AFF', flex: 1 },
+  // Filter Styles
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 15,
+  },
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#E5E5EA',
+    marginHorizontal: 4,
+  },
+  filterButtonSelected: {
+    backgroundColor: '#007AFF',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  filterButtonTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
 
-  // Settings
-  settingSubtitle: { fontSize: 16, fontWeight: '700', color: '#333', marginTop: 20, marginBottom: 10 },
-  settingListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
-  settingItemText: { fontSize: 16, color: '#333' },
-
-  // Account Select
-  accountSelectItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
-  accountSelectItemText: { fontSize: 16, color: '#333', textAlign: 'center' },
-
-  // Date Picker
-  iosModalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
-  iosPickerContent: { backgroundColor: '#fff', paddingBottom: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  iosPickerHeader: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'flex-end' },
-  iosPickerDoneText: { fontSize: 16, color: '#007AFF', fontWeight: '600' },
+  // iOS Picker Styles
+  iosModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  iosPickerContent: {
+    backgroundColor: 'white',
+    paddingBottom: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  iosPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  iosPickerDoneText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 
   // Transfer Modal
-  transferPicker: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 10 },
+  transferPicker: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 10
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+    gap: 10
+  },
+  modalCloseButton: {
+    backgroundColor: '#E5E5EA',
+    flex: 1
+  },
+  modalConfirmButton: {
+    backgroundColor: '#007AFF',
+    flex: 1
+  },
+
+  // Settings
+  settingSubtitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 10
+  },
+  settingListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7'
+  },
+  settingItemText: {
+    fontSize: 16,
+    color: '#333'
+  },
+
+  // Account Select
+  accountSelectItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7'
+  },
+  accountSelectItemText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center'
+  },
 });
 
 function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
   const [amount, setAmount] = useState('');
   const [sourceId, setSourceId] = useState<number | undefined>(undefined);
   const [targetId, setTargetId] = useState<number | undefined>(undefined);
+  const [selectionMode, setSelectionMode] = useState<'none' | 'source' | 'target'>('none');
 
   const handleSubmit = () => {
     if (!amount || !sourceId || !targetId) {
@@ -894,47 +1323,104 @@ function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
     setAmount('');
     setSourceId(undefined);
     setTargetId(undefined);
+    setSelectionMode('none');
   };
+
+  const renderSelectionList = () => {
+    const onSelect = (id: number) => {
+      if (selectionMode === 'source') setSourceId(id);
+      else setTargetId(id);
+      setSelectionMode('none');
+    };
+
+    return (
+      <View style={{ width: '100%', maxHeight: 300 }}>
+        <Text style={styles.modalTitle}>
+          請選擇{selectionMode === 'source' ? '轉出' : '轉入'}帳本
+        </Text>
+        <ScrollView style={{ width: '100%' }}>
+          {accounts.map((acc: any) => (
+            <TouchableOpacity
+              key={acc.id}
+              style={{
+                width: '100%',
+                padding: 15,
+                borderBottomWidth: 1,
+                borderBottomColor: '#eee',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onPress={() => onSelect(acc.id)}
+            >
+              <Text style={{ fontSize: 16 }}>{acc.name} ({acc.currency})</Text>
+              {(selectionMode === 'source' ? sourceId === acc.id : targetId === acc.id) && (
+                <Ionicons name="checkmark" size={20} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]}
+          onPress={() => setSelectionMode('none')}
+        >
+          <Text style={styles.buttonText}>取消</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderForm = () => (
+    <>
+      <Text style={styles.modalTitle}>轉帳</Text>
+      <TextInput
+        style={[styles.input, { width: '100%', marginBottom: 15 }]}
+        placeholder="金額"
+        keyboardType="numeric"
+        value={amount}
+        onChangeText={setAmount}
+      />
+      <View style={{ width: '100%', marginBottom: 10 }}>
+        <Text style={styles.inputLabel}>從:</Text>
+        <TouchableOpacity
+          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => setSelectionMode('source')}
+        >
+          <Text style={{ color: sourceId ? '#000' : '#666' }}>
+            {accounts.find((acc: any) => acc.id === sourceId)?.name || '請選擇轉出帳本'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color="#666" />
+        </TouchableOpacity>
+      </View>
+      <View style={{ width: '100%', marginBottom: 20 }}>
+        <Text style={styles.inputLabel}>到:</Text>
+        <TouchableOpacity
+          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => setSelectionMode('target')}
+        >
+          <Text style={{ color: targetId ? '#000' : '#666' }}>
+            {accounts.find((acc: any) => acc.id === targetId)?.name || '請選擇轉入帳本'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color="#666" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.modalButtonContainer}>
+        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}>
+          <Text style={styles.buttonText}>取消</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}>
+          <Text style={styles.buttonText}>確認</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>轉帳</Text>
-          <TextInput
-            style={[styles.input, { width: '100%', marginBottom: 15 }]}
-            placeholder="金額"
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-          />
-          <View style={{ width: '100%', marginBottom: 10 }}>
-            <Text>從:</Text>
-            <View style={styles.transferPicker}>
-              <Picker selectedValue={sourceId} onValueChange={setSourceId}>
-                <Picker.Item label="請選擇" value={undefined} />
-                {accounts.map((acc: any) => <Picker.Item key={acc.id} label={acc.name} value={acc.id} />)}
-              </Picker>
-            </View>
-          </View>
-          <View style={{ width: '100%', marginBottom: 20 }}>
-            <Text>到:</Text>
-            <View style={styles.transferPicker}>
-              <Picker selectedValue={targetId} onValueChange={setTargetId}>
-                <Picker.Item label="請選擇" value={undefined} />
-                {accounts.map((acc: any) => <Picker.Item key={acc.id} label={acc.name} value={acc.id} />)}
-              </Picker>
-            </View>
-          </View>
-
-          <View style={styles.modalButtonContainer}>
-            <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}>
-              <Text style={styles.buttonText}>取消</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>確認</Text>
-            </TouchableOpacity>
-          </View>
+          {selectionMode === 'none' ? renderForm() : renderSelectionList()}
         </View>
       </View>
     </Modal>
@@ -979,8 +1465,13 @@ function SettingsModal({ visible, onClose, categories, onAddCategory, onDeleteCa
                   </TouchableOpacity>
                 </View>
                 <View style={{ flexDirection: 'row', marginBottom: 15 }}>
-                  <TextInput style={[styles.input, { flex: 1, marginRight: 10 }]} placeholder="新分類名稱" value={newCat} onChangeText={setNewCat} />
-                  <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF' }]} onPress={() => { onAddCategory(catType, newCat); setNewCat(''); }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginRight: 10, height: 50 }]}
+                    placeholder="新分類名稱"
+                    value={newCat}
+                    onChangeText={setNewCat}
+                  />
+                  <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', height: 50, justifyContent: 'center' }]} onPress={() => { onAddCategory(catType, newCat); setNewCat(''); }}>
                     <Text style={styles.buttonText}>新增</Text>
                   </TouchableOpacity>
                 </View>

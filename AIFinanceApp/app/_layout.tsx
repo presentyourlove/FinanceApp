@@ -46,11 +46,16 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+import { StatusBar } from 'expo-status-bar';
+
+// ... (existing imports)
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <StatusBar style="dark" />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
