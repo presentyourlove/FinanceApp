@@ -18,9 +18,11 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 // 引入資料庫操作 (正確路徑)
 import { dbOperations } from '../database';
+import * as CategoryStorage from '../utils/categoryStorage';
 
 // ===================================================
 // ✨ 數據結構定義
@@ -147,6 +149,17 @@ export default function TransactionScreen() {
     };
     loadData();
   }, []);
+
+  // 3. 載入類別 (每次進入頁面時)
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadCats = async () => {
+        const cats = await CategoryStorage.loadCategories();
+        setCategories(cats);
+      };
+      loadCats();
+    }, [])
+  );
 
   // 2. 載入特定帳本的交易記錄 (選定的帳本改變時)
   useEffect(() => {
@@ -358,12 +371,10 @@ export default function TransactionScreen() {
   };
 
 
-  const handleAddCategory = (type: 'income' | 'expense', name: string) => {
+  const handleAddCategory = async (type: 'income' | 'expense', name: string) => {
     if (!name) return;
-    setCategories(prev => ({
-      ...prev,
-      [type]: [...prev[type], name],
-    }));
+    const updatedCategories = await CategoryStorage.addCategory(type, name);
+    setCategories(updatedCategories);
     Alert.alert("成功", `備註「${name}」已加入${type === 'income' ? '收入' : '支出'} 列表！`);
   };
 
@@ -389,23 +400,14 @@ export default function TransactionScreen() {
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, selectedAccountId, filterType]);
 
-  const handleDeleteCategory = (type: 'income' | 'expense', category: string) => {
-    setCategories(prev => ({
-      ...prev,
-      [type]: prev[type].filter(c => c !== category),
-    }));
+  const handleDeleteCategory = async (type: 'income' | 'expense', category: string) => {
+    const updatedCategories = await CategoryStorage.deleteCategory(type, category);
+    setCategories(updatedCategories);
   };
 
-  const moveCategory = (type: 'income' | 'expense', index: number, direction: 'up' | 'down') => {
-    const list = [...categories[type]];
-    if (direction === 'up') {
-      if (index === 0) return;
-      [list[index - 1], list[index]] = [list[index], list[index - 1]];
-    } else {
-      if (index === list.length - 1) return;
-      [list[index + 1], list[index]] = [list[index], list[index + 1]];
-    }
-    setCategories(prev => ({ ...prev, [type]: list }));
+  const moveCategory = async (type: 'income' | 'expense', index: number, direction: 'up' | 'down') => {
+    const updatedCategories = await CategoryStorage.moveCategory(type, index, direction);
+    setCategories(updatedCategories);
   };
 
   // --- 編輯交易邏輯 ---

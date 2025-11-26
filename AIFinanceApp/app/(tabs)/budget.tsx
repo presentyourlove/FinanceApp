@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { dbOperations, Budget } from '../database';
 import { useFocusEffect } from 'expo-router';
+import * as CategoryStorage from '../utils/categoryStorage';
 
 export default function BudgetScreen() {
     const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -40,16 +41,13 @@ export default function BudgetScreen() {
             const spendingData = await dbOperations.getCategorySpending(now.getFullYear(), now.getMonth() + 1);
             setSpending(spendingData);
 
-            // 取得可用類別 (預設 + 已使用)
-            const usedCats = await dbOperations.getDistinctCategories();
-            const defaultCats = ['餐飲', '交通', '購物', '娛樂', '居住', '教育', '醫療', '投資', '其他'];
-            // 合併並去重
-            const allCats = Array.from(new Set([...defaultCats, ...usedCats]));
-            setAvailableCategories(allCats);
-
+            // 從 AsyncStorage 載入類別
+            const cats = await CategoryStorage.loadCategories();
+            const expenseCategories = cats.expense;
+            setAvailableCategories(expenseCategories);
             // 如果還沒選類別，預設選第一個
-            if (!category && allCats.length > 0) {
-                setCategory(allCats[0]);
+            if (!category && expenseCategories.length > 0) {
+                setCategory(expenseCategories[0]);
             }
         } catch (error) {
             console.error(error);
