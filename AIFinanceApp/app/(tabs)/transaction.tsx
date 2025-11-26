@@ -1376,6 +1376,7 @@ function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
       <TextInput
         style={[styles.input, { width: '100%', marginBottom: 15 }]}
         placeholder="金額"
+        placeholderTextColor="#999"
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
@@ -1418,11 +1419,13 @@ function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          {selectionMode === 'none' ? renderForm() : renderSelectionList()}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            {selectionMode === 'none' ? renderForm() : renderSelectionList()}
+          </View>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
