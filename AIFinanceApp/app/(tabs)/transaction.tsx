@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 // 引入資料庫操作 (正確路徑)
-import { dbOperations } from '../database';
+import { dbOperations } from '../services/database';
 import * as CategoryStorage from '../utils/categoryStorage';
 
 // ===================================================

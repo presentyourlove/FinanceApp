@@ -65,15 +65,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 📊 圖表分析頁面 - 檔案名: app/(tabs)/two.tsx */}
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: '圖表',
-          tabBarIcon: ({ color }) => <TabBarIcon name="pie-chart-outline" color={color} />,
-        }}
-      />
-
     </Tabs>
   );
 }

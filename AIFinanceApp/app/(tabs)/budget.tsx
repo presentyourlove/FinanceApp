@@ -8,11 +8,14 @@ import {
     Modal,
     TextInput,
     Alert,
-    ScrollView
+
+    ScrollView,
+    TouchableWithoutFeedback,
+    Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dbOperations, Budget } from '../database';
+import { dbOperations, Budget } from '../services/database';
 import { useFocusEffect } from 'expo-router';
 import * as CategoryStorage from '../utils/categoryStorage';
 
@@ -189,7 +192,7 @@ export default function BudgetScreen() {
 
             <Text style={styles.label}>類別</Text>
             <TouchableOpacity
-                style={[styles.dropdownButton, editingId && styles.disabledButton]}
+                style={[styles.dropdownButton, editingId ? styles.disabledButton : null]}
                 onPress={() => !editingId && setSelectionMode('category')}
                 disabled={!!editingId}
             >
@@ -254,11 +257,13 @@ export default function BudgetScreen() {
             />
 
             <Modal visible={isModalVisible} animationType="slide" transparent={true}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
-                        {selectionMode === 'none' ? renderForm() : renderSelectionList()}
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={styles.centeredView}>
+                        <View style={styles.modalView}>
+                            {selectionMode === 'none' ? renderForm() : renderSelectionList()}
+                        </View>
                     </View>
-                </View>
+                </TouchableWithoutFeedback>
             </Modal>
         </SafeAreaView>
     );
