@@ -341,6 +341,13 @@ export const updateGoalAmount = async (id: number, currentAmount: number) => {
   runSqlSync(`UPDATE goals SET currentAmount = ? WHERE id = ?;`, [currentAmount, id]);
 };
 
+export const updateGoal = async (id: number, name: string, targetAmount: number, deadline?: string) => {
+  runSqlSync(
+    `UPDATE goals SET name = ?, targetAmount = ?, deadline = ? WHERE id = ?;`,
+    [name, targetAmount, deadline || null, id]
+  );
+};
+
 export const deleteGoal = async (id: number) => {
   runSqlSync(`DELETE FROM goals WHERE id = ?;`, [id]);
 };
@@ -403,6 +410,7 @@ export const dbOperations = {
   getGoals,
   addGoal,
   updateGoalAmount,
+  updateGoal,
   deleteGoal,
   // Stats
   getCategorySpending,
