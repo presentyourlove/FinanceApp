@@ -1,35 +1,26 @@
-// app/(tabs)/_layout.tsx
-
 import { Tabs } from 'expo-router';
 import React from 'react';
-// 使用 Ionicons 代替可能出錯的 FontAwesome
 import { Ionicons } from '@expo/vector-icons';
 
-// 定義 Tab Bar Icon 的元件
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof Ionicons>['name'];
   color: string;
 }) {
-  // 將大小調整為標準尺寸
   return <Ionicons size={24} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
-
-  // 由於移除了 useColorScheme，我們直接在下面設定固定顏色
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#007AFF', // 活躍標籤顏色：藍色
-        tabBarInactiveTintColor: '#8E8E93', // 非活躍標籤顏色：灰色
-        headerShown: false, // 隱藏所有 Tab 頁面的頂部標題列
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#8E8E93',
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff', // 底部 Tab Bar 的背景色：白色
+          backgroundColor: '#fff',
         },
       }}>
 
-      {/* 💸 記錄交易頁面 - 檔案名: app/(tabs)/transaction.tsx */}
       <Tabs.Screen
         name="transaction"
         options={{
@@ -38,7 +29,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 💰 預算管理頁面 - 檔案名: app/(tabs)/budget.tsx */}
+      <Tabs.Screen
+        name="analysis"
+        options={{
+          title: '分析',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bulb-outline" color={color} />,
+        }}
+      />
+
       <Tabs.Screen
         name="budget"
         options={{
@@ -47,21 +45,11 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 🎯 存錢目標頁面 - 檔案名: app/(tabs)/goal.tsx */}
       <Tabs.Screen
         name="goal"
         options={{
           title: '目標',
           tabBarIcon: ({ color }) => <TabBarIcon name="trophy-outline" color={color} />,
-        }}
-      />
-
-      {/* 🤖 AI 分析頁面 - 檔案名: app/(tabs)/analysis.tsx */}
-      <Tabs.Screen
-        name="analysis"
-        options={{
-          title: 'AI 分析',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bulb-outline" color={color} />,
         }}
       />
 
