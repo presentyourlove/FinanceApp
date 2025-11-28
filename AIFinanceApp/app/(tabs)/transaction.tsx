@@ -95,6 +95,15 @@ export default function TransactionScreen() {
   const [filterType, setFilterType] = useState<'all' | 'day' | 'month' | 'year'>('all');
   const [editSelectionMode, setEditSelectionMode] = useState<'none' | 'category'>('none');
 
+  // 轉帳編輯狀態
+  const [isEditTransferModalVisible, setEditTransferModalVisible] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState<Transaction | null>(null);
+  const [editTransferAmount, setEditTransferAmount] = useState('');
+  const [editTransferFromAccount, setEditTransferFromAccount] = useState<number | undefined>(undefined);
+  const [editTransferToAccount, setEditTransferToAccount] = useState<number | undefined>(undefined);
+  const [editTransferDate, setEditTransferDate] = useState(new Date());
+  const [editTransferDescription, setEditTransferDescription] = useState('');
+  const [showEditTransferDatePicker, setShowEditTransferDatePicker] = useState(false);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -124,6 +133,15 @@ export default function TransactionScreen() {
     }
     if (selectedDate) {
       setEditDate(selectedDate);
+    }
+  };
+
+  const onEditTransferDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEditTransferDatePicker(false);
+    }
+    if (selectedDate) {
+      setEditTransferDate(selectedDate);
     }
   };
 
@@ -434,6 +452,52 @@ export default function TransactionScreen() {
     setEditModalVisible(true);
   };
 
+  const openEditTransferModal = (transaction: Transaction) => {
+    setEditingTransfer(transaction);
+    setEditTransferAmount(transaction.amount.toString());
+    setEditTransferFromAccount(transaction.accountId);
+    setEditTransferToAccount(transaction.targetAccountId);
+    setEditTransferDate(new Date(transaction.date));
+    setEditTransferDescription(transaction.description || '');
+    setEditTransferModalVisible(true);
+  };
+
+  const handleUpdateTransfer = async () => {
+    if (!editingTransfer) return;
+    const amount = parseFloat(editTransferAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('錯誤', '請輸入有效的金額');
+      return;
+    }
+    if (!editTransferFromAccount || !editTransferToAccount) {
+      Alert.alert('錯誤', '請選擇轉出和轉入帳戶');
+      return;
+    }
+    if (editTransferFromAccount === editTransferToAccount) {
+      Alert.alert('錯誤', '轉出和轉入帳戶不能相同');
+      return;
+    }
+    try {
+      await dbOperations.updateTransfer(
+        editingTransfer.id,
+        editingTransfer.accountId,  // 舊轉出帳戶
+        editingTransfer.targetAccountId!,  // 舊轉入帳戶
+        editingTransfer.amount,  // 舊金額
+        editTransferFromAccount,  // 新轉出帳戶
+        editTransferToAccount,  // 新轉入帳戶
+        amount,  // 新金額
+        editTransferDate,  // 新日期
+        editTransferDescription  // 新備註
+      );
+      Alert.alert('成功', '轉帳記錄已更新');
+      setEditTransferModalVisible(false);
+      await refreshData();
+    } catch (error) {
+      console.error('更新轉帳失敗:', error);
+      Alert.alert('錯誤', '更新轉帳記錄失敗');
+    }
+  };
+
   const handleUpdateTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
 
@@ -564,7 +628,16 @@ export default function TransactionScreen() {
     const accountCurrency = accounts.find(acc => acc.id === item.accountId)?.currency || 'TWD';
 
     return (
-      <TouchableOpacity style={styles.listItem} onPress={() => openEditModal(item)}>
+      <TouchableOpacity
+        style={styles.listItem}
+        onPress={() => {
+          if (item.type === 'transfer') {
+            openEditTransferModal(item);
+          } else {
+            openEditModal(item);
+          }
+        }}
+      >
         <View style={styles.listItemTextContainer}>
           <Text style={[styles.listItemType, { color: isTransfer ? '#333' : '#333' }]} numberOfLines={1}>
             {descriptionText}
@@ -937,6 +1010,27 @@ export default function TransactionScreen() {
         onDeleteAccount={handleDeleteAccount}
         onAddAccount={handleAddAccount}
         accounts={accounts}
+      />
+
+      {/* 編輯轉帳 Modal */}
+      <EditTransferModal
+        visible={isEditTransferModalVisible}
+        onClose={() => setEditTransferModalVisible(false)}
+        onUpdate={handleUpdateTransfer}
+        accounts={accounts}
+        amount={editTransferAmount}
+        setAmount={setEditTransferAmount}
+        fromAccount={editTransferFromAccount}
+        setFromAccount={setEditTransferFromAccount}
+        toAccount={editTransferToAccount}
+        setToAccount={setEditTransferToAccount}
+        date={editTransferDate}
+        setDate={setEditTransferDate}
+        description={editTransferDescription}
+        setDescription={setEditTransferDescription}
+        showDatePicker={showEditTransferDatePicker}
+        setShowDatePicker={setShowEditTransferDatePicker}
+        onDateChange={onEditTransferDateChange}
       />
 
       <AccountSelectModal
@@ -1315,8 +1409,56 @@ const styles = StyleSheet.create({
   },
   accountSelectItemText: {
     fontSize: 16,
+    color: '#333'
+  },
+
+  // 補上 EditTransferModal 缺少的樣式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
     color: '#333',
-    textAlign: 'center'
+    marginTop: 10,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: '#F9F9F9',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
+  dateButton: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    backgroundColor: '#F9F9F9',
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
   },
 });
 
@@ -1336,6 +1478,7 @@ function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
     setSourceId(undefined);
     setTargetId(undefined);
     setSelectionMode('none');
+    onClose();
   };
 
   const renderSelectionList = () => {
@@ -1694,6 +1837,107 @@ function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, onAdd
               </TouchableOpacity>
             </>
           )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// 編輯轉帳 Modal
+function EditTransferModal({
+  visible,
+  onClose,
+  onUpdate,
+  accounts,
+  amount,
+  setAmount,
+  fromAccount,
+  setFromAccount,
+  toAccount,
+  setToAccount,
+  date,
+  setDate,
+  description,
+  setDescription,
+  showDatePicker,
+  setShowDatePicker,
+  onDateChange
+}: any) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>編輯轉帳記錄</Text>
+          <Text style={styles.label}>金額</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="輸入金額"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={setAmount}
+          />
+          <Text style={styles.label}>從 (轉出)</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={fromAccount}
+              onValueChange={setFromAccount}
+              style={styles.picker}
+            >
+              <Picker.Item label="選擇帳戶" value={undefined} />
+              {accounts.map((acc: Account) => (
+                <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
+              ))}
+            </Picker>
+          </View>
+          <Text style={styles.label}>到 (轉入)</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={toAccount}
+              onValueChange={setToAccount}
+              style={styles.picker}
+            >
+              <Picker.Item label="選擇帳戶" value={undefined} />
+              {accounts.map((acc: Account) => (
+                <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
+              ))}
+            </Picker>
+          </View>
+          <Text style={styles.label}>日期</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text>{date.toLocaleDateString('zh-TW')}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
+          <Text style={styles.label}>備註</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="輸入備註（選填）"
+            value={description}
+            onChangeText={setDescription}
+          />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={onClose}
+            >
+              <Text style={styles.buttonText}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.confirmButton]}
+              onPress={onUpdate}
+            >
+              <Text style={styles.buttonText}>確認</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>

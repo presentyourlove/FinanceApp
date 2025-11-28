@@ -264,6 +264,55 @@ export const performTransfer = async (fromAccountId: number, toAccountId: number
 };
 
 /**
+ * 更新轉帳交易
+ * 同時更新交易記錄並調整相關帳戶的餘額
+ */
+export const updateTransfer = async (
+  transactionId: number,
+  oldFromAccountId: number,
+  oldToAccountId: number,
+  oldAmount: number,
+  newFromAccountId: number,
+  newToAccountId: number,
+  newAmount: number,
+  newDate: Date,
+  newDescription: string
+) => {
+  const dateString = newDate.toISOString();
+  // 1. 恢復舊轉帳的餘額影響
+  // 舊轉出帳戶：加回原金額
+  const oldFromRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [oldFromAccountId]) as any[];
+  if (oldFromRows && oldFromRows.length > 0) {
+    const restoredBalance = oldFromRows[0].currentBalance + oldAmount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [restoredBalance, oldFromAccountId]);
+  }
+  // 舊轉入帳戶：減去原金額
+  const oldToRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [oldToAccountId]) as any[];
+  if (oldToRows && oldToRows.length > 0) {
+    const restoredBalance = oldToRows[0].currentBalance - oldAmount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [restoredBalance, oldToAccountId]);
+  }
+  // 2. 更新交易記錄
+  runSqlSync(
+    `UPDATE transactions SET amount = ?, date = ?, description = ?, accountId = ?, targetAccountId = ? WHERE id = ?;`,
+    [newAmount, dateString, newDescription, newFromAccountId, newToAccountId, transactionId]
+  );
+  // 3. 應用新轉帳的餘額影響
+  // 新轉出帳戶：減去新金額
+  const newFromRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [newFromAccountId]) as any[];
+  if (newFromRows && newFromRows.length > 0) {
+    const newBalance = newFromRows[0].currentBalance - newAmount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newBalance, newFromAccountId]);
+  }
+  // 新轉入帳戶：加上新金額
+  const newToRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [newToAccountId]) as any[];
+  if (newToRows && newToRows.length > 0) {
+    const newBalance = newToRows[0].currentBalance + newAmount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newBalance, newToAccountId]);
+  }
+};
+
+/**
  * 讀取特定帳本的交易記錄
  */
 export const getTransactionsByAccountDB = async (accountId: number): Promise<Transaction[]> => {
@@ -428,6 +477,7 @@ export const dbOperations = {
   updateTransactionDB,
   deleteTransactionDB,
   performTransfer,
+  updateTransfer,
   getTransactionsByAccountDB,
   addAccountDB,
   deleteAccountDB,
