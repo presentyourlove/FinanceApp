@@ -53,6 +53,14 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: '設定',
+          tabBarIcon: ({ color }) => <TabBarIcon name="cog-outline" color={color} />,
+        }}
+      />
+
     </Tabs>
   );
 }

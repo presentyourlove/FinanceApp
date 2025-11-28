@@ -1,12 +1,13 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, DarkTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
-
+// Import our custom theme context
+import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -44,18 +45,38 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  // Wrap the entire app with our custom ThemeProvider
+  return (
+    <ThemeProvider>
+      <RootLayoutNav />
+    </ThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  // const colorScheme = useColorScheme();
+  // Use our custom theme hook to get current theme details
+  const { isDark, colors } = useTheme();
+
+  // Create a navigation theme that matches our app theme
+  const navigationTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.background,
+      card: colors.card,
+      text: colors.text,
+      primary: colors.tint,
+      border: colors.borderColor,
+    },
+  };
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <StatusBar style="dark" />
+    // Use the navigation theme provider with our generated theme
+    <NavigationThemeProvider value={navigationTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }

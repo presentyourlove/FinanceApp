@@ -16,17 +16,12 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-// 引入資料庫操作 (正確路徑)
-import { dbOperations } from '../services/database';
-import * as CategoryStorage from '../utils/categoryStorage';
-
-// ===================================================
-// ✨ 數據結構定義
-// ===================================================
+import { useTheme } from '@/app/context/ThemeContext';
+import { dbOperations } from '@/app/services/database';
+import * as CategoryStorage from '@/app/utils/categoryStorage';
 
 interface Account {
   id: number;
@@ -40,13 +35,12 @@ interface Transaction {
   id: number;
   amount: number;
   type: 'income' | 'expense' | 'transfer';
-  date: string; // 從資料庫讀取是 string
+  date: string;
   description: string;
   accountId: number;
   targetAccountId?: number;
 }
 
-// 預設分類 
 const defaultCategories = {
   expense: [
     '餐飲', '交通', '服飾', '居住', '購物', '醫療', '保險', '教育', '娛樂', '旅遊', '運動'
@@ -56,46 +50,31 @@ const defaultCategories = {
   ],
 };
 
-
-// ===================================================
-// ✨ 主元件
-// ===================================================
-
 export default function TransactionScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+
   const [dbInitialized, setDbInitialized] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  // 狀態管理
   const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
   const [amountInput, setAmountInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
-  const [categories, setCategories] = useState(defaultCategories);
-
-  // 彈窗狀態
+  const [categories, setCategories] = useState<CategoryStorage.Categories>(defaultCategories);
   const [isTransferModalVisible, setTransferModalVisible] = useState(false);
-  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false);
-
-  // 編輯交易狀態
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editDate, setEditDate] = useState(new Date());
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
-
-  // 日期時間選擇狀態
   const [transactionDate, setTransactionDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-
-  // 篩選狀態
   const [filterType, setFilterType] = useState<'all' | 'day' | 'month' | 'year'>('all');
   const [editSelectionMode, setEditSelectionMode] = useState<'none' | 'category'>('none');
-
-  // 轉帳編輯狀態
   const [isEditTransferModalVisible, setEditTransferModalVisible] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<Transaction | null>(null);
   const [editTransferAmount, setEditTransferAmount] = useState('');
@@ -106,9 +85,7 @@ export default function TransactionScreen() {
   const [showEditTransferDatePicker, setShowEditTransferDatePicker] = useState(false);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
+    if (Platform.OS === 'android') setShowDatePicker(false);
     if (selectedDate) {
       const newDate = new Date(transactionDate);
       newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
@@ -117,9 +94,7 @@ export default function TransactionScreen() {
   };
 
   const onTimeChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
+    if (Platform.OS === 'android') setShowTimePicker(false);
     if (selectedDate) {
       const newDate = new Date(transactionDate);
       newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
@@ -128,26 +103,15 @@ export default function TransactionScreen() {
   };
 
   const onEditDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowEditDatePicker(false);
-    }
-    if (selectedDate) {
-      setEditDate(selectedDate);
-    }
+    if (Platform.OS === 'android') setShowEditDatePicker(false);
+    if (selectedDate) setEditDate(selectedDate);
   };
 
   const onEditTransferDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowEditTransferDatePicker(false);
-    }
-    if (selectedDate) {
-      setEditTransferDate(selectedDate);
-    }
+    if (Platform.OS === 'android') setShowEditTransferDatePicker(false);
+    if (selectedDate) setEditTransferDate(selectedDate);
   };
 
-  // --- 資料庫讀取邏輯 ---
-
-  // 1. 初始化資料庫並載入帳本 (App 第一次啟動)
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -155,12 +119,7 @@ export default function TransactionScreen() {
         setDbInitialized(true);
         const loadedAccounts = await dbOperations.getAccounts();
         setAccounts(loadedAccounts);
-
-        // 設置初始選定的帳本和轉帳帳本
-        if (loadedAccounts.length > 0) {
-          const initialId = loadedAccounts[0].id;
-          setSelectedAccountId(initialId);
-        }
+        if (loadedAccounts.length > 0) setSelectedAccountId(loadedAccounts[0].id);
       } catch (e) {
         console.error("Failed to load initial data:", e);
       }
@@ -168,34 +127,26 @@ export default function TransactionScreen() {
     loadData();
   }, []);
 
-  // 3. 載入類別和重新載入帳戶資料 (每次進入頁面時)
   useFocusEffect(
-    React.useCallback(() => {
-      const loadCats = async () => {
+    useCallback(() => {
+      const loadAllData = async () => {
         const cats = await CategoryStorage.loadCategories();
         setCategories(cats);
-      };
-      const reloadData = async () => {
         const loadedAccounts = await dbOperations.getAccounts();
         setAccounts(loadedAccounts);
-
         if (selectedAccountId !== undefined) {
           const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
           setTransactions(loadedTransactions);
         }
       };
-      loadCats();
-      reloadData();
+      loadAllData();
     }, [selectedAccountId])
   );
 
-  // 2. 載入特定帳本的交易記錄 (選定的帳本改變時)
   useEffect(() => {
     if (selectedAccountId === undefined || !dbInitialized) return;
-
     const loadTransactions = async () => {
       try {
-        // 載入與該帳本相關的所有交易 (作為源頭或目標)
         const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
         setTransactions(loadedTransactions);
       } catch (e) {
@@ -205,66 +156,33 @@ export default function TransactionScreen() {
     loadTransactions();
   }, [selectedAccountId, dbInitialized]);
 
-  // 當前餘額的計算 
-  const currentBalance = useMemo(() => {
-    return accounts.find(acc => acc.id === selectedAccountId)?.currentBalance || 0;
-  }, [accounts, selectedAccountId]);
+  const currentBalance = useMemo(() => accounts.find(acc => acc.id === selectedAccountId)?.currentBalance || 0, [accounts, selectedAccountId]);
 
-  // 輔助函數：重新從資料庫載入帳本和交易
   const refreshData = useCallback(async () => {
     const loadedAccounts = await dbOperations.getAccounts();
     setAccounts(loadedAccounts);
-
     if (selectedAccountId !== undefined) {
       const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
       setTransactions(loadedTransactions);
     }
   }, [selectedAccountId]);
 
-
-
-
   const handleTransaction = async (type: 'income' | 'expense') => {
     const amount = parseFloat(amountInput);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert("無效輸入", "請輸入有效的正數金額。");
-      return;
-    }
-    if (selectedAccountId === undefined) {
-      Alert.alert("錯誤", "請先選擇一個帳本。");
-      return;
-    }
+    if (isNaN(amount) || amount <= 0) return Alert.alert("無效輸入", "請輸入有效的正數金額。");
+    if (selectedAccountId === undefined) return Alert.alert("錯誤", "請先選擇一個帳本。");
 
     try {
-      // 1. 計算新的餘額
       const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
       if (!currentAcc) throw new Error("Account not found.");
-
-      const isAddition = type === 'income';
-      const newBalance = isAddition
-        ? currentAcc.currentBalance + amount
-        : currentAcc.currentBalance - amount;
-
-      // 2. 更新資料庫中的帳本餘額
+      const newBalance = type === 'income' ? currentAcc.currentBalance + amount : currentAcc.currentBalance - amount;
       await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-
-      // 3. 新增交易記錄
-      await dbOperations.addTransactionDB({
-        amount: amount,
-        type: type,
-        date: transactionDate,
-        description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'),
-        accountId: selectedAccountId,
-      });
-
-      // 4. 刷新 App 狀態
+      await dbOperations.addTransactionDB({ amount, type, date: transactionDate, description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'), accountId: selectedAccountId });
       await refreshData();
-
       setAmountInput('');
       setDescriptionInput('');
       Keyboard.dismiss();
       Alert.alert("成功", `${type === 'income' ? '收入' : '支出'} NT$ ${amount.toFixed(2)} 已記錄!`);
-
     } catch (error) {
       Alert.alert("交易失敗", "處理交易時發生錯誤。");
       console.error("Transaction failed:", error);
@@ -272,179 +190,45 @@ export default function TransactionScreen() {
   };
 
   const handleTransfer = async (amount: number, sourceId: number, targetId: number) => {
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert("無效操作", "請輸入有效金額。");
-      return;
-    }
-    if (sourceId === undefined || targetId === undefined || sourceId === targetId) {
-      Alert.alert("無效操作", "請確保轉出與轉入帳本不同且已選定。");
-      return;
-    }
+    if (isNaN(amount) || amount <= 0) return Alert.alert("無效操作", "請輸入有效金額。");
+    if (sourceId === undefined || targetId === undefined || sourceId === targetId) return Alert.alert("無效操作", "請確保轉出與轉入帳本不同且已選定。");
 
     try {
       const sourceAcc = accounts.find(acc => acc.id === sourceId);
       const targetAcc = accounts.find(acc => acc.id === targetId);
-
       if (!sourceAcc || !targetAcc) throw new Error("Source or Target account not found.");
+      if (sourceAcc.currentBalance < amount) return Alert.alert("餘額不足", "轉出帳本餘額不足。");
 
-      if (sourceAcc.currentBalance < amount) {
-        Alert.alert("餘額不足", "轉出帳本餘額不足。");
-        return;
-      }
-
-      // 1. 計算新的餘額
       const newSourceBalance = sourceAcc.currentBalance - amount;
       const newTargetBalance = targetAcc.currentBalance + amount;
-
-      // 2. 更新資料庫中的帳本餘額 
+      const now = new Date();
       await dbOperations.updateAccountBalanceDB(sourceId, newSourceBalance);
       await dbOperations.updateAccountBalanceDB(targetId, newTargetBalance);
-
-      const now = new Date();
-
-      // 3. 新增轉出交易記錄
-      await dbOperations.addTransactionDB({
-        amount: amount,
-        type: 'transfer',
-        date: now,
-        description: `轉出至 ${targetAcc.name} `,
-        accountId: sourceId,
-        targetAccountId: targetId,
-      });
-
-      // 4. 新增轉入交易記錄 (記錄在目標帳本的交易列表中)
-      await dbOperations.addTransactionDB({
-        amount: amount,
-        type: 'transfer',
-        date: now,
-        description: `轉入自 ${sourceAcc.name} `,
-        accountId: targetId,
-        targetAccountId: sourceId, // 這裡的 targetAccountId 實際上是轉帳的來源 ID
-      });
-
-      // 5. 刷新 App 狀態
+      await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉出至 ${targetAcc.name}`, accountId: sourceId, targetAccountId: targetId });
+      await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉入自 ${sourceAcc.name}`, accountId: targetId, targetAccountId: sourceId });
+      
       const loadedAccounts = await dbOperations.getAccounts();
       setAccounts(loadedAccounts);
-
-
       setTransferModalVisible(false);
       Alert.alert("成功", `NT$ ${amount.toFixed(2)} 已從 ${sourceAcc.name} 轉出至 ${targetAcc.name}。`);
-
     } catch (error) {
       Alert.alert("轉帳失敗", "處理轉帳時發生錯誤。");
       console.error("Transfer failed:", error);
     }
   };
 
-  // --- 自定義設定邏輯 ---
-
-  const handleAddAccount = async (name: string, balance: number, currency: string) => {
-    if (!name) {
-      Alert.alert("名稱無效", "請輸入新的帳本名稱。");
-      return;
-    }
-    if (isNaN(balance)) {
-      Alert.alert("金額無效", "請輸入有效的初始資金。");
-      return;
-    }
-
-    try {
-      const newId = await dbOperations.addAccountDB(name, balance, currency);
-
-      // 刷新 App 狀態
-      const loadedAccounts = await dbOperations.getAccounts();
-      setAccounts(loadedAccounts);
-
-      // 設置選定的帳本
-      if (selectedAccountId === undefined) {
-        setSelectedAccountId(newId);
-      }
-
-
-      setAccountSelectModalVisible(false);
-      Alert.alert("成功", `帳本「${name}」已新增。`);
-    } catch {
-      Alert.alert("新增失敗", "新增帳本時發生錯誤。");
-    }
-  };
-
-  const handleDeleteAccount = async (id: number) => {
-    if (accounts.length <= 1) {
-      Alert.alert("無法刪除", "至少需要保留一個帳本。");
-      return;
-    }
-
-    try {
-      await dbOperations.deleteAccountDB(id);
-
-      // 刷新 App 狀態
-      const loadedAccounts = await dbOperations.getAccounts();
-      setAccounts(loadedAccounts);
-
-      // 如果刪除的是選定的帳本，則將選定 ID 轉移到第一個帳本
-      if (selectedAccountId === id) {
-        const newSelectedId = loadedAccounts[0]?.id;
-        setSelectedAccountId(newSelectedId);
-      }
-
-
-      Alert.alert("成功", "帳本已刪除。");
-    } catch (error: any) {
-      if (error.message.includes("transactions")) {
-        Alert.alert("無法刪除", "此帳本仍有交易記錄，請先清除相關交易。");
-      } else {
-        Alert.alert("刪除失敗", "刪除帳本時發生錯誤。");
-      }
-    }
-  };
-
-
-  const handleAddCategory = async (type: 'income' | 'expense', name: string) => {
-    if (!name) return;
-    const updatedCategories = await CategoryStorage.addCategory(type, name);
-    setCategories(updatedCategories);
-    Alert.alert("成功", `備註「${name}」已加入${type === 'income' ? '收入' : '支出'} 列表！`);
-  };
-
-
-
   const filterTransactions = useCallback(() => {
     if (!selectedAccountId) return [];
-
-    let filtered = transactions.filter(t => t.accountId === selectedAccountId || (t.type === 'transfer' && t.targetAccountId === selectedAccountId));
-
+    const filtered = transactions.filter(t => t.accountId === selectedAccountId || (t.type === 'transfer' && t.targetAccountId === selectedAccountId));
     const now = new Date();
-    if (filterType === 'day') {
-      filtered = filtered.filter(t => new Date(t.date).toDateString() === now.toDateString());
-    } else if (filterType === 'month') {
-      filtered = filtered.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      });
-    } else if (filterType === 'year') {
-      filtered = filtered.filter(t => new Date(t.date).getFullYear() === now.getFullYear());
-    }
-
+    if (filterType === 'day') return filtered.filter(t => new Date(t.date).toDateString() === now.toDateString()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (filterType === 'month') return filtered.filter(t => { const d = new Date(t.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (filterType === 'year') return filtered.filter(t => new Date(t.date).getFullYear() === now.getFullYear()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, selectedAccountId, filterType]);
 
-  const handleDeleteCategory = async (type: 'income' | 'expense', category: string) => {
-    const updatedCategories = await CategoryStorage.deleteCategory(type, category);
-    setCategories(updatedCategories);
-  };
-
-  const moveCategory = async (type: 'income' | 'expense', index: number, direction: 'up' | 'down') => {
-    const updatedCategories = await CategoryStorage.moveCategory(type, index, direction);
-    setCategories(updatedCategories);
-  };
-
-  // --- 編輯交易邏輯 ---
-
   const openEditModal = (transaction: Transaction) => {
-    if (transaction.type === 'transfer') {
-      Alert.alert("提示", "轉帳記錄目前不支援直接編輯，請刪除後重新建立。");
-      return;
-    }
+    if (transaction.type === 'transfer') return Alert.alert("提示", "轉帳記錄目前不支援直接編輯，請刪除後重新建立。");
     setEditingTransaction(transaction);
     setEditAmount(transaction.amount.toString());
     setEditDescription(transaction.description);
@@ -463,32 +247,13 @@ export default function TransactionScreen() {
   };
 
   const handleUpdateTransfer = async () => {
-    if (!editingTransfer) return;
+    if (!editingTransfer || !editTransferFromAccount || !editTransferToAccount) return;
     const amount = parseFloat(editTransferAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('錯誤', '請輸入有效的金額');
-      return;
-    }
-    if (!editTransferFromAccount || !editTransferToAccount) {
-      Alert.alert('錯誤', '請選擇轉出和轉入帳戶');
-      return;
-    }
-    if (editTransferFromAccount === editTransferToAccount) {
-      Alert.alert('錯誤', '轉出和轉入帳戶不能相同');
-      return;
-    }
+    if (isNaN(amount) || amount <= 0) return Alert.alert('錯誤', '請輸入有效的金額');
+    if (editTransferFromAccount === editTransferToAccount) return Alert.alert('錯誤', '轉出和轉入帳戶不能相同');
+
     try {
-      await dbOperations.updateTransfer(
-        editingTransfer.id,
-        editingTransfer.accountId,  // 舊轉出帳戶
-        editingTransfer.targetAccountId!,  // 舊轉入帳戶
-        editingTransfer.amount,  // 舊金額
-        editTransferFromAccount,  // 新轉出帳戶
-        editTransferToAccount,  // 新轉入帳戶
-        amount,  // 新金額
-        editTransferDate,  // 新日期
-        editTransferDescription  // 新備註
-      );
+      await dbOperations.updateTransfer(editingTransfer.id, editingTransfer.accountId, editingTransfer.targetAccountId!, editingTransfer.amount, editTransferFromAccount, editTransferToAccount, amount, editTransferDate, editTransferDescription);
       Alert.alert('成功', '轉帳記錄已更新');
       setEditTransferModalVisible(false);
       await refreshData();
@@ -500,47 +265,23 @@ export default function TransactionScreen() {
 
   const handleUpdateTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
-
     const newAmount = parseFloat(editAmount);
-    if (isNaN(newAmount) || newAmount <= 0) {
-      Alert.alert("錯誤", "請輸入有效金額");
-      return;
-    }
+    if (isNaN(newAmount) || newAmount <= 0) return Alert.alert("錯誤", "請輸入有效金額");
 
     try {
-      // 1. 還原舊交易對餘額的影響
       const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
       if (!currentAcc) throw new Error("Account not found");
 
       let revertedBalance = currentAcc.currentBalance;
-      if (editingTransaction.type === 'income') {
-        revertedBalance -= editingTransaction.amount;
-      } else {
-        revertedBalance += editingTransaction.amount;
-      }
+      revertedBalance += editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount;
+      const newBalance = revertedBalance + (editingTransaction.type === 'income' ? newAmount : -newAmount);
 
-      // 2. 應用新交易對餘額的影響
-      let newBalance = revertedBalance;
-      if (editingTransaction.type === 'income') {
-        newBalance += newAmount;
-      } else {
-        newBalance -= newAmount;
-      }
-
-      // 3. 更新資料庫
       await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-      await dbOperations.updateTransactionDB(
-        editingTransaction.id,
-        newAmount,
-        editingTransaction.type,
-        editDate,
-        editDescription
-      );
+      await dbOperations.updateTransactionDB(editingTransaction.id, newAmount, editingTransaction.type, editDate, editDescription);
 
       setEditModalVisible(false);
       await refreshData();
       Alert.alert("成功", "交易已更新");
-
     } catch (error) {
       console.error(error);
       Alert.alert("錯誤", "更新失敗");
@@ -549,519 +290,269 @@ export default function TransactionScreen() {
 
   const handleDeleteTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
-
-    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [
-      { text: "取消", style: "cancel" },
-      {
-        text: "刪除",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // 1. 還原餘額
-            const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
-            if (!currentAcc) throw new Error("Account not found");
-
-            let newBalance = currentAcc.currentBalance;
-            if (editingTransaction.type === 'income') {
-              newBalance -= editingTransaction.amount;
-            } else {
-              newBalance += editingTransaction.amount;
-            }
-
-            // 2. 更新資料庫
-            await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-            await dbOperations.deleteTransactionDB(editingTransaction.id);
-
-            setEditModalVisible(false);
-            await refreshData();
-            Alert.alert("成功", "交易已刪除");
-          } catch (error) {
-            console.error(error);
-            Alert.alert("錯誤", "刪除失敗");
-          }
-        }
+    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [{ text: "取消", style: "cancel" }, { text: "刪除", style: "destructive", onPress: async () => {
+      try {
+        const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+        if (!currentAcc) throw new Error("Account not found");
+        const newBalance = currentAcc.currentBalance + (editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount);
+        await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
+        await dbOperations.deleteTransactionDB(editingTransaction.id);
+        setEditModalVisible(false);
+        await refreshData();
+        Alert.alert("成功", "交易已刪除");
+      } catch (error) {
+        console.error(error);
+        Alert.alert("錯誤", "刪除失敗");
       }
-    ]);
+    }}]);
   };
 
-  // 渲染元件 
   const renderItem = ({ item }: { item: Transaction }) => {
-    const isIncome = item.type === 'income';
     const isTransfer = item.type === 'transfer';
-
-    // 判斷交易方向來決定是加號還是減號
-    let amountSign: string;
-    let amountColor: string;
-    let descriptionText: string;
-
-    // 找出轉出帳本和轉入帳本的名稱
     const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
     const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || '未知帳本';
-
-
+    
+    let amountSign: string, amountColor: string, descriptionText: string;
     if (isTransfer) {
-      // 如果是轉帳，判斷它是「轉出」（accountId）還是「轉入」（targetAccountId）
       if (item.accountId === selectedAccountId) {
-        // 當前選定帳本是轉出方
         amountSign = '-';
-        descriptionText = `轉出至 ${targetAccountName} `;
+        descriptionText = `轉出至 ${targetAccountName}`;
       } else {
-        // 當前選定帳本是轉入方 (item.targetAccountId 儲存的是來源 ID)
         amountSign = '+';
-        descriptionText = `轉入自 ${sourceAccountName} `;
+        descriptionText = `轉入自 ${sourceAccountName}`;
       }
       amountColor = '#FF9500';
     } else {
-      amountSign = isIncome ? '+' : '-';
-      amountColor = isIncome ? '#4CD964' : '#FF3B30';
+      amountSign = item.type === 'income' ? '+' : '-';
+      amountColor = item.type === 'income' ? '#4CD964' : '#FF3B30';
       descriptionText = item.description;
     }
 
-    // 交易清單顯示的帳本始終是該筆記錄的帳本ID
     const displayAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
-
-    // 將 date 字符串轉為 Date 物件以格式化
-    const dateObject = new Date(item.date);
-
-
-    // 取得該帳本的幣別
     const accountCurrency = accounts.find(acc => acc.id === item.accountId)?.currency || 'TWD';
 
     return (
-      <TouchableOpacity
-        style={styles.listItem}
-        onPress={() => {
-          if (item.type === 'transfer') {
-            openEditTransferModal(item);
-          } else {
-            openEditModal(item);
-          }
-        }}
-      >
+      <TouchableOpacity style={styles.listItem} onPress={() => isTransfer ? openEditTransferModal(item) : openEditModal(item)}>
         <View style={styles.listItemTextContainer}>
-          <Text style={[styles.listItemType, { color: isTransfer ? '#333' : '#333' }]} numberOfLines={1}>
-            {descriptionText}
-          </Text>
-          <Text style={styles.listItemDate}>
-            {displayAccountName} · {dateObject.toLocaleDateString()}
-          </Text>
+          <Text style={styles.listItemType} numberOfLines={1}>{descriptionText}</Text>
+          <Text style={styles.listItemDate}>{displayAccountName} · {new Date(item.date).toLocaleDateString()}</Text>
         </View>
-        <Text style={[styles.listItemAmount, { color: amountColor }]}>
-          {amountSign} {accountCurrency} {item.amount.toFixed(2)}
-        </Text>
+        <Text style={[styles.listItemAmount, { color: amountColor }]}>{`${amountSign} ${accountCurrency} ${item.amount.toFixed(2)}`}</Text>
       </TouchableOpacity>
     );
   };
 
   const renderListHeader = () => (
     <>
-      {/* 頂部 Header 區 */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.picker}
-          onPress={() => setAccountSelectModalVisible(true)}
-        >
-          <Text style={styles.pickerDisplayText}>
-            {accounts.find(acc => acc.id === selectedAccountId)?.name || '選擇帳本'}
-          </Text>
+        <TouchableOpacity style={styles.pickerButton} onPress={() => setAccountSelectModalVisible(true)}>
+          <Text style={styles.pickerDisplayText}>{accounts.find(acc => acc.id === selectedAccountId)?.name || '選擇帳本'}</Text>
         </TouchableOpacity>
-
         <Text style={styles.title}>當前帳本餘額</Text>
-        <Text
-          style={[styles.balanceText, { color: currentBalance >= 0 ? '#007AFF' : '#FF3B30' }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit={true}
-        >
-          {accounts.find(acc => acc.id === selectedAccountId)?.currency || 'TWD'} {currentBalance.toFixed(2)}
+        <Text style={[styles.balanceText, { color: currentBalance >= 0 ? '#007AFF' : '#FF3B30' }]} numberOfLines={1} adjustsFontSizeToFit={true}>
+          {`${accounts.find(acc => acc.id === selectedAccountId)?.currency || 'TWD'} ${currentBalance.toFixed(2)}`}
         </Text>
       </View>
-
-      {/* 輸入框與按鈕區 */}
       <View style={styles.inputArea}>
-        {/* 日期時間選擇區 */}
         <View style={{ flexDirection: 'row', width: '90%', marginBottom: 10, justifyContent: 'space-between' }}>
-          <TouchableOpacity
-            style={[styles.input, { flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 16, color: '#333' }}>
-              {transactionDate.toLocaleDateString()}
-            </Text>
+          <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => setShowDatePicker(true)}>
+            <Ionicons name="calendar-outline" size={20} color={colors.subtleText} style={{ marginRight: 8 }} />
+            <Text style={styles.inputText}>{transactionDate.toLocaleDateString()}</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.input, { flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Ionicons name="time-outline" size={20} color="#666" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 16, color: '#333' }}>
-              {transactionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+          <TouchableOpacity style={[styles.input, { flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => setShowTimePicker(true)}>
+            <Ionicons name="time-outline" size={20} color={colors.subtleText} style={{ marginRight: 8 }} />
+            <Text style={styles.inputText}>{transactionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
           </TouchableOpacity>
         </View>
-
-        {/* DateTimePicker Components */}
-        {Platform.OS === 'ios' && showDatePicker && (
-          <Modal transparent={true} animationType="slide" visible={showDatePicker}>
-            <View style={styles.iosModalOverlay}>
-              <View style={styles.iosPickerContent}>
-                <View style={styles.iosPickerHeader}>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.iosPickerDoneText}>完成</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={transactionDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDateChange}
-                  textColor="#000"
-                />
-              </View>
-            </View>
-          </Modal>
-        )}
-        {Platform.OS === 'android' && showDatePicker && (
-          <DateTimePicker
-            value={transactionDate}
-            mode="date"
-            display="default"
-            onChange={onDateChange}
-          />
-        )}
-
-        {Platform.OS === 'ios' && showTimePicker && (
-          <Modal transparent={true} animationType="slide" visible={showTimePicker}>
-            <View style={styles.iosModalOverlay}>
-              <View style={styles.iosPickerContent}>
-                <View style={styles.iosPickerHeader}>
-                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                    <Text style={styles.iosPickerDoneText}>完成</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={transactionDate}
-                  mode="time"
-                  display="spinner"
-                  onChange={onTimeChange}
-                  textColor="#000"
-                />
-              </View>
-            </View>
-          </Modal>
-        )}
-        {Platform.OS === 'android' && showTimePicker && (
-          <DateTimePicker
-            value={transactionDate}
-            mode="time"
-            display="default"
-            onChange={onTimeChange}
-          />
-        )}
-
-        <TextInput
-          style={[styles.input, { width: '90%', marginBottom: 10 }]}
-          placeholder="請輸入金額 (例如: 500)"
-          placeholderTextColor="#666"
-          keyboardType="numeric"
-          value={amountInput}
-          onChangeText={setAmountInput}
-        />
-        <TextInput
-          style={[styles.input, { width: '90%', marginBottom: 15 }]}
-          placeholder="請輸入類別 (例如: 午餐、薪水)"
-          placeholderTextColor="#666"
-          value={descriptionInput}
-          onChangeText={setDescriptionInput}
-        />
-
-        {/* 2. 交易操作區 */}
+        {showDatePicker && <DateTimePicker value={transactionDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} textColor={colors.text} />}
+        {showTimePicker && <DateTimePicker value={transactionDate} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onTimeChange} textColor={colors.text} />}
+        <TextInput style={[styles.input, { width: '90%', marginBottom: 10 }]} placeholder="請輸入金額 (例如: 500)" placeholderTextColor={colors.subtleText} keyboardType="numeric" value={amountInput} onChangeText={setAmountInput} />
+        <TextInput style={[styles.input, { width: '90%', marginBottom: 15 }]} placeholder="請輸入類別 (例如: 午餐、薪水)" placeholderTextColor={colors.subtleText} value={descriptionInput} onChangeText={setDescriptionInput} />
         <View style={styles.buttonContainer}>
-          {/* 收入行 */}
-          <View style={styles.transactionRow}>
-            <TouchableOpacity
-              style={[styles.mainButton, styles.incomeButton, styles.autoWidthButton]}
-              onPress={() => handleTransaction('income')}
-            >
-              <Text style={styles.buttonText}>收入 (＋)</Text>
-            </TouchableOpacity>
-            <View style={[styles.categoryZone]}>
-              {categories.income.map((category, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.categoryButton}
-                  onPress={() => setDescriptionInput(category)}
-                >
-                  <Text style={styles.categoryText}>{category}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* 支出行 */}
-          <View style={[styles.transactionRow, { marginTop: 8 }]}>
-            <TouchableOpacity
-              style={[styles.mainButton, styles.expenseButton, styles.autoWidthButton]}
-              onPress={() => handleTransaction('expense')}
-            >
-              <Text style={styles.buttonText}>支出 (－)</Text>
-            </TouchableOpacity>
-            <View style={[styles.categoryZone]}>
-              {categories.expense.map((category, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.categoryButton}
-                  onPress={() => setDescriptionInput(category)}
-                >
-                  <Text style={styles.categoryText}>{category}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* 轉帳行 */}
-          <TouchableOpacity
-            style={[styles.mainButton, styles.transferButton, { width: '100%', alignSelf: 'center', marginTop: 15, height: 45 }]}
-            onPress={() => setTransferModalVisible(true)}
-          >
-            <Text style={styles.buttonText}>轉帳</Text>
-          </TouchableOpacity>
+          <View style={styles.transactionRow}><TouchableOpacity style={[styles.mainButton, styles.incomeButton, styles.autoWidthButton]} onPress={() => handleTransaction('income')}><Text style={styles.buttonText}>收入 (＋)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.income.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
+          <View style={[styles.transactionRow, { marginTop: 8 }]}><TouchableOpacity style={[styles.mainButton, styles.expenseButton, styles.autoWidthButton]} onPress={() => handleTransaction('expense')}><Text style={styles.buttonText}>支出 (－)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.expense.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
+          <TouchableOpacity style={[styles.mainButton, styles.transferButton, { width: '100%', alignSelf: 'center', marginTop: 15, height: 45 }]} onPress={() => setTransferModalVisible(true)}><Text style={styles.buttonText}>轉帳</Text></TouchableOpacity>
         </View>
       </View>
-
-      {/* 交易清單顯示區 */}
-      <View style={styles.listHeaderRow}>
-        <Text style={styles.listHeader}>近期交易 (帳本: {accounts.find(acc => acc.id === selectedAccountId)?.name})</Text>
-        <TouchableOpacity onPress={() => setSettingsModalVisible(true)} style={{ padding: 5 }}>
-          <Ionicons name="cog-outline" size={24} color="#333" />
-        </TouchableOpacity>
-      </View>
-
-      {/* 篩選按鈕區 */}
+      <View style={styles.listHeaderRow}><Text style={styles.listHeader}>近期交易 (帳本: {accounts.find(acc => acc.id === selectedAccountId)?.name})</Text></View>
       <View style={styles.filterContainer}>
         {(['all', 'year', 'month', 'day'] as const).map((type) => (
-          <TouchableOpacity
-            key={type}
-            style={[
-              styles.filterButton,
-              filterType === type && styles.filterButtonSelected
-            ]}
-            onPress={() => setFilterType(type)}
-          >
-            <Text style={[
-              styles.filterButtonText,
-              filterType === type && styles.filterButtonTextSelected
-            ]}>
-              {type === 'all' ? '全部' : type === 'year' ? '今年' : type === 'month' ? '本月' : '今天'}
-            </Text>
+          <TouchableOpacity key={type} style={[styles.filterButton, filterType === type && styles.filterButtonSelected]} onPress={() => setFilterType(type)}>
+            <Text style={[styles.filterButtonText, filterType === type && styles.filterButtonTextSelected]}>{type === 'all' ? '全部' : type === 'year' ? '今年' : type === 'month' ? '本月' : '今天'}</Text>
           </TouchableOpacity>
         ))}
       </View>
     </>
   );
 
-  const renderEditSelectionList = () => {
-    if (!editingTransaction) return null;
-    const type = editingTransaction.type === 'income' ? 'income' : 'expense';
-    const items = categories[type];
-
-    return (
-      <View style={{ width: '100%', maxHeight: 300 }}>
-        <Text style={styles.modalTitle}>請選擇類別</Text>
-        <ScrollView style={{ width: '100%' }}>
-          {items.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={{
-                width: '100%',
-                padding: 15,
-                borderBottomWidth: 1,
-                borderBottomColor: '#eee',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-              onPress={() => {
-                setEditDescription(cat);
-                setEditSelectionMode('none');
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>{cat}</Text>
-              {editDescription === cat && (
-                <Ionicons name="checkmark" size={20} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]}
-          onPress={() => setEditSelectionMode('none')}
-        >
-          <Text style={styles.buttonText}>取消</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  const renderEditSelectionList = () => (
+    <View style={{ width: '100%', maxHeight: 300 }}>
+      <Text style={styles.modalTitle}>請選擇類別</Text>
+      <ScrollView style={{ width: '100%' }}>
+        {(editingTransaction?.type === 'income' ? categories.income : categories.expense).map((cat) => (
+          <TouchableOpacity key={cat} style={styles.modalListItem} onPress={() => { setEditDescription(cat); setEditSelectionMode('none'); }}>
+            <Text style={styles.inputText}>{cat}</Text>
+            {editDescription === cat && <Ionicons name="checkmark" size={20} color={colors.tint} />}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <TouchableOpacity style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]} onPress={() => setEditSelectionMode('none')}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
+    </View>
+  );
 
   const renderEditForm = () => (
     <>
       <Text style={styles.modalTitle}>編輯交易</Text>
-
       <Text style={styles.inputLabel}>日期</Text>
-      <TouchableOpacity
-        style={[styles.input, { flexDirection: 'row', alignItems: 'center', marginBottom: 10 }]}
-        onPress={() => setShowEditDatePicker(true)}
-      >
-        <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 8 }} />
-        <Text style={{ fontSize: 16 }}>{editDate.toLocaleDateString()}</Text>
+      <TouchableOpacity style={[styles.input, { flexDirection: 'row', alignItems: 'center', marginBottom: 10 }]} onPress={() => setShowEditDatePicker(true)}>
+        <Ionicons name="calendar-outline" size={20} color={colors.subtleText} style={{ marginRight: 8 }} />
+        <Text style={styles.inputText}>{editDate.toLocaleDateString()}</Text>
       </TouchableOpacity>
-
-      {Platform.OS === 'ios' && showEditDatePicker && (
-        <Modal transparent={true} animationType="slide" visible={showEditDatePicker}>
-          <View style={styles.iosModalOverlay}>
-            <View style={styles.iosPickerContent}>
-              <View style={styles.iosPickerHeader}>
-                <TouchableOpacity onPress={() => setShowEditDatePicker(false)}>
-                  <Text style={styles.iosPickerDoneText}>完成</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={editDate}
-                mode="date"
-                display="spinner"
-                onChange={onEditDateChange}
-                textColor="#000"
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-      {Platform.OS === 'android' && showEditDatePicker && (
-        <DateTimePicker
-          value={editDate}
-          mode="date"
-          display="default"
-          onChange={onEditDateChange}
-        />
-      )}
-
+      {showEditDatePicker && <DateTimePicker value={editDate} mode="date" display="default" onChange={onEditDateChange} />}
       <Text style={styles.inputLabel}>金額</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="金額"
-        placeholderTextColor="#666"
-        value={editAmount}
-        onChangeText={setEditAmount}
-        keyboardType="numeric"
-      />
-
+      <TextInput style={styles.input} placeholder="金額" placeholderTextColor={colors.subtleText} value={editAmount} onChangeText={setEditAmount} keyboardType="numeric" />
       <Text style={styles.inputLabel}>類別</Text>
-      <TouchableOpacity
-        style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-        onPress={() => setEditSelectionMode('category')}
-      >
-        <Text style={{ color: editDescription ? '#000' : '#666' }}>
-          {editDescription || '請選擇類別'}
-        </Text>
-        <Ionicons name="chevron-down" size={20} color="#666" />
+      <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setEditSelectionMode('category')}>
+        <Text style={{ color: editDescription ? colors.text : colors.subtleText }}>{editDescription || '請選擇類別'}</Text>
+        <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
       </TouchableOpacity>
-
       <View style={styles.modalButtons}>
-        <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
-          <Text style={styles.buttonText}>取消</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30' }]} onPress={handleDeleteTransaction}>
-          <Text style={styles.buttonText}>刪除</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleUpdateTransaction}>
-          <Text style={styles.buttonText}>儲存</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setEditModalVisible(false)}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30' }]} onPress={handleDeleteTransaction}><Text style={styles.buttonText}>刪除</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleUpdateTransaction}><Text style={styles.buttonText}>儲存</Text></TouchableOpacity>
       </View>
     </>
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={filterTransactions()}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        ListHeaderComponent={renderListHeader()}
-        ListEmptyComponent={<Text style={styles.emptyText}>無交易紀錄</Text>}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        keyboardDismissMode="on-drag"
-      />
-
-      <TransferModal
-        visible={isTransferModalVisible}
-        onClose={() => setTransferModalVisible(false)}
-        onTransfer={handleTransfer}
-        accounts={accounts}
-      />
-
-      <SettingsModal
-        visible={isSettingsModalVisible}
-        onClose={() => setSettingsModalVisible(false)}
-        categories={categories}
-        onAddCategory={handleAddCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onMoveCategory={moveCategory}
-        onDeleteAccount={handleDeleteAccount}
-        onAddAccount={handleAddAccount}
-        accounts={accounts}
-      />
-
-      {/* 編輯轉帳 Modal */}
-      <EditTransferModal
-        visible={isEditTransferModalVisible}
-        onClose={() => setEditTransferModalVisible(false)}
-        onUpdate={handleUpdateTransfer}
-        accounts={accounts}
-        amount={editTransferAmount}
-        setAmount={setEditTransferAmount}
-        fromAccount={editTransferFromAccount}
-        setFromAccount={setEditTransferFromAccount}
-        toAccount={editTransferToAccount}
-        setToAccount={setEditTransferToAccount}
-        date={editTransferDate}
-        setDate={setEditTransferDate}
-        description={editTransferDescription}
-        setDescription={setEditTransferDescription}
-        showDatePicker={showEditTransferDatePicker}
-        setShowDatePicker={setShowEditTransferDatePicker}
-        onDateChange={onEditTransferDateChange}
-      />
-
-      <AccountSelectModal
-        visible={isAccountSelectModalVisible}
-        onClose={() => setAccountSelectModalVisible(false)}
-        accounts={accounts}
-        onSelectAccount={setSelectedAccountId}
-      />
-      <Modal visible={isEditModalVisible} animationType="slide" transparent={true}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.centeredView}>
-            <View style={styles.modalView}>
-              {editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+      <FlatList data={filterTransactions()} renderItem={renderItem} keyExtractor={(item) => item.id.toString()} ListHeaderComponent={renderListHeader()} ListEmptyComponent={<Text style={styles.emptyText}>無交易紀錄</Text>} contentContainerStyle={{ paddingBottom: 100 }} keyboardDismissMode="on-drag" />
+      <TransferModal visible={isTransferModalVisible} onClose={() => setTransferModalVisible(false)} onTransfer={handleTransfer} accounts={accounts} colors={colors} styles={styles} />
+      <EditTransferModal visible={isEditTransferModalVisible} onClose={() => setEditTransferModalVisible(false)} onUpdate={handleUpdateTransfer} accounts={accounts} amount={editTransferAmount} setAmount={setEditTransferAmount} fromAccount={editTransferFromAccount} setFromAccount={setEditTransferFromAccount} toAccount={editTransferToAccount} setToAccount={setEditTransferToAccount} date={editTransferDate} setDate={setEditTransferDate} description={editTransferDescription} setDescription={setEditTransferDescription} showDatePicker={showEditTransferDatePicker} setShowDatePicker={setShowEditTransferDatePicker} onDateChange={onEditTransferDateChange} colors={colors} styles={styles} />
+      <AccountSelectModal visible={isAccountSelectModalVisible} onClose={() => setAccountSelectModalVisible(false)} accounts={accounts} onSelectAccount={setSelectedAccountId} colors={colors} styles={styles} />
+      <Modal visible={isEditModalVisible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function TransferModal({ visible, onClose, onTransfer, accounts, colors, styles }: any) {
+  const [amount, setAmount] = useState('');
+  const [sourceId, setSourceId] = useState<number | undefined>(undefined);
+  const [targetId, setTargetId] = useState<number | undefined>(undefined);
+  const [selectionMode, setSelectionMode] = useState<'none' | 'source' | 'target'>('none');
+
+  const handleSubmit = () => {
+    if (!amount || !sourceId || !targetId) return Alert.alert('錯誤', '請填寫完整資訊');
+    onTransfer(parseFloat(amount), sourceId, targetId);
+    setAmount('');
+    setSourceId(undefined);
+    setTargetId(undefined);
+    onClose();
+  };
+
+  const renderSelectionList = () => (
+    <View style={{ width: '100%', maxHeight: 300 }}>
+      <Text style={styles.modalTitle}>請選擇{selectionMode === 'source' ? '轉出' : '轉入'}帳本</Text>
+      <ScrollView style={{ width: '100%' }}>
+        {accounts.map((acc: any) => (
+          <TouchableOpacity key={acc.id} style={styles.modalListItem} onPress={() => { (selectionMode === 'source' ? setSourceId : setTargetId)(acc.id); setSelectionMode('none'); }}>
+            <Text style={styles.inputText}>{`${acc.name} (${acc.currency})`}</Text>
+            {(selectionMode === 'source' ? sourceId === acc.id : targetId === acc.id) && <Ionicons name="checkmark" size={20} color={colors.tint} />}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <TouchableOpacity style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]} onPress={() => setSelectionMode('none')}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
+    </View>
+  );
+
+  const renderForm = () => (
+    <>
+      <Text style={styles.modalTitle}>轉帳</Text>
+      <TextInput style={[styles.input, { width: '100%', marginBottom: 15 }]} placeholder="金額" placeholderTextColor={colors.subtleText} keyboardType="numeric" value={amount} onChangeText={setAmount} />
+      <View style={{ width: '100%', marginBottom: 10 }}>
+        <Text style={styles.inputLabel}>從:</Text>
+        <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setSelectionMode('source')}>
+          <Text style={{ color: sourceId ? colors.text : colors.subtleText }}>{accounts.find((acc: any) => acc.id === sourceId)?.name || '請選擇轉出帳本'}</Text>
+          <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
+        </TouchableOpacity>
+      </View>
+      <View style={{ width: '100%', marginBottom: 20 }}>
+        <Text style={styles.inputLabel}>到:</Text>
+        <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setSelectionMode('target')}>
+          <Text style={{ color: targetId ? colors.text : colors.subtleText }}>{accounts.find((acc: any) => acc.id === targetId)?.name || '請選擇轉入帳本'}</Text>
+          <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.modalButtonContainer}>
+        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}><Text style={[styles.buttonText, {color: colors.text}]}>取消</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}><Text style={styles.buttonText}>確認</Text></TouchableOpacity>
+      </View>
+    </>
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{selectionMode === 'none' ? renderForm() : renderSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
+  );
+}
+
+function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, colors, styles }: any) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.centeredView}>
+        <View style={styles.accountSelectModalView}>
+          <Text style={styles.modalTitle}>選擇帳本</Text>
+          <ScrollView style={{ maxHeight: 300, width: '100%' }}>
+            {accounts.map((acc: any) => (
+              <TouchableOpacity key={acc.id} style={styles.accountSelectItem} onPress={() => { onSelectAccount(acc.id); onClose(); }}>
+                <Text style={styles.accountSelectItemText}>{`${acc.name} (${acc.currency})`}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}><Text style={[styles.buttonText, {color: colors.text}]}>關閉</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function EditTransferModal({ visible, onClose, onUpdate, accounts, amount, setAmount, fromAccount, setFromAccount, toAccount, setToAccount, date, onDateChange, description, setDescription, showDatePicker, setShowDatePicker, colors, styles }: any) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>編輯轉帳記錄</Text>
+          <Text style={styles.label}>金額</Text>
+          <TextInput style={styles.input} placeholder="輸入金額" keyboardType="numeric" value={amount} onChangeText={setAmount} placeholderTextColor={colors.subtleText} />
+          <Text style={styles.label}>從 (轉出)</Text>
+          <View style={styles.pickerContainer}><Picker selectedValue={fromAccount} onValueChange={setFromAccount} style={{ color: colors.text }} dropdownIconColor={colors.text}><Picker.Item label="選擇帳戶" value={undefined} />{accounts.map((acc: Account) => (<Picker.Item key={acc.id} label={acc.name} value={acc.id} />))}</Picker></View>
+          <Text style={styles.label}>到 (轉入)</Text>
+          <View style={styles.pickerContainer}><Picker selectedValue={toAccount} onValueChange={setToAccount} style={{ color: colors.text }} dropdownIconColor={colors.text}><Picker.Item label="選擇帳戶" value={undefined} />{accounts.map((acc: Account) => (<Picker.Item key={acc.id} label={acc.name} value={acc.id} />))}</Picker></View>
+          <Text style={styles.label}>日期</Text>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}><Text style={{color: colors.text}}>{date.toLocaleDateString('zh-TW')}</Text></TouchableOpacity>
+          {showDatePicker && (<DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />)}
+          <Text style={styles.label}>備註</Text>
+          <TextInput style={styles.input} placeholder="輸入備註（選填）" value={description} onChangeText={setDescription} placeholderTextColor={colors.subtleText} />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onUpdate}><Text style={styles.buttonText}>確認</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   header: {
     paddingTop: 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
+    alignSelf: 'stretch',
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -1072,7 +563,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginBottom: 15,
   },
-  picker: {
+  pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 5,
@@ -1081,11 +572,12 @@ const styles = StyleSheet.create({
   pickerDisplayText: {
     fontSize: 50,
     fontWeight: '600',
-    color: '#007AFF',
+    color: colors.accent, // Changed from tint to accent
+    textAlign: 'center',
   },
   title: {
     fontSize: 14,
-    color: '#666',
+    color: colors.subtleText,
     marginTop: 5,
   },
   balanceText: {
@@ -1094,7 +586,7 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   inputArea: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     marginHorizontal: 15,
     padding: 15,
     borderRadius: 15,
@@ -1108,26 +600,29 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 45,
-    borderColor: '#E5E5EA',
+    borderColor: colors.borderColor,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 15,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
-    color: '#333',
+    backgroundColor: colors.inputBackground,
+    color: colors.text,
     width: '100%',
-    marginBottom: 10,
+  },
+  inputText: {
+    fontSize: 16,
+    color: colors.text,
   },
   inputLabel: {
     alignSelf: 'flex-start',
     marginLeft: 5,
     marginBottom: 5,
     fontSize: 14,
-    color: '#666',
+    color: colors.subtleText,
     fontWeight: '500',
   },
   buttonContainer: {
-    width: '100%',
+    width: '90%',
     marginTop: 5,
   },
   transactionRow: {
@@ -1169,7 +664,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   categoryButton: {
-    backgroundColor: '#F0F0F5',
+    backgroundColor: colors.inputBackground,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 15,
@@ -1177,7 +672,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 12,
-    color: '#333',
+    color: colors.text,
   },
   buttonText: {
     color: '#fff',
@@ -1194,10 +689,10 @@ const styles = StyleSheet.create({
   listHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
   },
   listItem: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 15,
     marginHorizontal: 15,
     marginBottom: 10,
@@ -1205,11 +700,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
   listItemTextContainer: {
     flex: 1,
@@ -1218,10 +708,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+    color: colors.text,
   },
   listItemDate: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.subtleText,
   },
   listItemAmount: {
     fontSize: 18,
@@ -1229,12 +720,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.subtleText,
     marginTop: 20,
     fontSize: 16,
   },
-
-  // Modal Styles
   centeredView: {
     flex: 1,
     justifyContent: "center",
@@ -1243,48 +732,37 @@ const styles = StyleSheet.create({
   },
   modalView: {
     width: '85%',
-    backgroundColor: "white",
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 25,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5
   },
-  settingsModalView: {
-    width: '95%',
-    maxHeight: '80%',
-    backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5
+  modalListItem: {
+    width: '100%',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   accountSelectModalView: {
     width: '90%',
     maxHeight: '70%',
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
     borderRadius: 24,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#333',
+    color: colors.text,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1305,8 +783,6 @@ const styles = StyleSheet.create({
   confirmButton: {
     backgroundColor: "#007AFF",
   },
-
-  // Filter Styles
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1317,29 +793,22 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.inputBackground,
     marginHorizontal: 4,
   },
   filterButtonSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.accent, // Changed from tint to accent
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.subtleText,
   },
   filterButtonTextSelected: {
     color: '#fff',
     fontWeight: '600',
   },
-
-  // iOS Picker Styles
-  iosModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
   iosPickerContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
     paddingBottom: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1349,20 +818,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.borderColor,
   },
   iosPickerDoneText: {
-    color: '#007AFF',
+    color: colors.accent, // Use accent color for consistency
     fontSize: 16,
     fontWeight: '600',
-  },
-
-  // Transfer Modal
-  transferPicker: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 10
   },
   modalButtonContainer: {
     flexDirection: 'row',
@@ -1372,47 +833,22 @@ const styles = StyleSheet.create({
     gap: 10
   },
   modalCloseButton: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.inputBackground,
     flex: 1
   },
   modalConfirmButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.accent,
     flex: 1
   },
-
-  // Settings
-  settingSubtitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 10
-  },
-  settingListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7'
-  },
-  settingItemText: {
-    fontSize: 16,
-    color: '#333'
-  },
-
-  // Account Select
   accountSelectItem: {
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7'
+    borderBottomColor: colors.borderColor,
   },
   accountSelectItemText: {
     fontSize: 16,
-    color: '#333'
+    color: colors.text,
   },
-
-  // 補上 EditTransferModal 缺少的樣式
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1421,7 +857,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     maxHeight: '80%',
@@ -1430,26 +866,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: colors.text,
     marginTop: 10,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.borderColor,
     borderRadius: 10,
     marginBottom: 10,
-    backgroundColor: '#F9F9F9',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
+    backgroundColor: colors.inputBackground,
   },
   dateButton: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: colors.borderColor,
     borderRadius: 10,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.inputBackground,
     marginBottom: 10,
     alignItems: 'center',
   },
@@ -1461,485 +893,3 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
 });
-
-function TransferModal({ visible, onClose, onTransfer, accounts }: any) {
-  const [amount, setAmount] = useState('');
-  const [sourceId, setSourceId] = useState<number | undefined>(undefined);
-  const [targetId, setTargetId] = useState<number | undefined>(undefined);
-  const [selectionMode, setSelectionMode] = useState<'none' | 'source' | 'target'>('none');
-
-  const handleSubmit = () => {
-    if (!amount || !sourceId || !targetId) {
-      Alert.alert('錯誤', '請填寫完整資訊');
-      return;
-    }
-    onTransfer(parseFloat(amount), sourceId, targetId);
-    setAmount('');
-    setSourceId(undefined);
-    setTargetId(undefined);
-    setSelectionMode('none');
-    onClose();
-  };
-
-  const renderSelectionList = () => {
-    const onSelect = (id: number) => {
-      if (selectionMode === 'source') setSourceId(id);
-      else setTargetId(id);
-      setSelectionMode('none');
-    };
-
-    return (
-      <View style={{ width: '100%', maxHeight: 300 }}>
-        <Text style={styles.modalTitle}>
-          請選擇{selectionMode === 'source' ? '轉出' : '轉入'}帳本
-        </Text>
-        <ScrollView style={{ width: '100%' }}>
-          {accounts.map((acc: any) => (
-            <TouchableOpacity
-              key={acc.id}
-              style={{
-                width: '100%',
-                padding: 15,
-                borderBottomWidth: 1,
-                borderBottomColor: '#eee',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-              onPress={() => onSelect(acc.id)}
-            >
-              <Text style={{ fontSize: 16 }}>{acc.name} ({acc.currency})</Text>
-              {(selectionMode === 'source' ? sourceId === acc.id : targetId === acc.id) && (
-                <Ionicons name="checkmark" size={20} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]}
-          onPress={() => setSelectionMode('none')}
-        >
-          <Text style={styles.buttonText}>取消</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderForm = () => (
-    <>
-      <Text style={styles.modalTitle}>轉帳</Text>
-      <TextInput
-        style={[styles.input, { width: '100%', marginBottom: 15 }]}
-        placeholder="金額"
-        placeholderTextColor="#999"
-        keyboardType="numeric"
-        value={amount}
-        onChangeText={setAmount}
-      />
-      <View style={{ width: '100%', marginBottom: 10 }}>
-        <Text style={styles.inputLabel}>從:</Text>
-        <TouchableOpacity
-          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-          onPress={() => setSelectionMode('source')}
-        >
-          <Text style={{ color: sourceId ? '#000' : '#666' }}>
-            {accounts.find((acc: any) => acc.id === sourceId)?.name || '請選擇轉出帳本'}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
-      <View style={{ width: '100%', marginBottom: 20 }}>
-        <Text style={styles.inputLabel}>到:</Text>
-        <TouchableOpacity
-          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-          onPress={() => setSelectionMode('target')}
-        >
-          <Text style={{ color: targetId ? '#000' : '#666' }}>
-            {accounts.find((acc: any) => acc.id === targetId)?.name || '請選擇轉入帳本'}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.modalButtonContainer}>
-        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}>
-          <Text style={styles.buttonText}>取消</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>確認</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  );
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            {selectionMode === 'none' ? renderForm() : renderSelectionList()}
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-}
-
-function SettingsModal({ visible, onClose, categories, onAddCategory, onDeleteCategory, onMoveCategory, onDeleteAccount, onAddAccount, accounts }: any) {
-  const [newCat, setNewCat] = useState('');
-  const [catType, setCatType] = useState<'income' | 'expense'>('expense');
-  const [manageMode, setManageMode] = useState<'category' | 'account'>('category');
-
-  // 新增帳本狀態
-  const [newAccName, setNewAccName] = useState('');
-  const [newAccBalance, setNewAccBalance] = useState('');
-  const [newAccCurrency, setNewAccCurrency] = useState('TWD');
-  const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.centeredView}>
-        <View style={styles.settingsModalView}>
-          <Text style={styles.modalTitle}>設定</Text>
-
-          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 15 }}>
-            <TouchableOpacity onPress={() => setManageMode('category')} style={{ padding: 10, borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: '#007AFF' }}>
-              <Text style={{ color: manageMode === 'category' ? '#007AFF' : '#666' }}>分類管理</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setManageMode('account')} style={{ padding: 10, borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: '#007AFF' }}>
-              <Text style={{ color: manageMode === 'account' ? '#007AFF' : '#666' }}>帳本管理</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={{ maxHeight: 400 }}>
-            {manageMode === 'category' ? (
-              <>
-                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-                  <TouchableOpacity onPress={() => setCatType('expense')} style={[styles.button, { backgroundColor: catType === 'expense' ? '#FF3B30' : '#ddd', marginRight: 10, flex: 1 }]}>
-                    <Text style={styles.buttonText}>支出</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setCatType('income')} style={[styles.button, { backgroundColor: catType === 'income' ? '#4CD964' : '#ddd', flex: 1 }]}>
-                    <Text style={styles.buttonText}>收入</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={{ flexDirection: 'row', marginBottom: 15 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1, marginRight: 10, height: 50 }]}
-                    placeholder="新分類名稱"
-                    value={newCat}
-                    onChangeText={setNewCat}
-                  />
-                  <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', height: 50, justifyContent: 'center' }]} onPress={() => { onAddCategory(catType, newCat); setNewCat(''); }}>
-                    <Text style={styles.buttonText}>新增</Text>
-                  </TouchableOpacity>
-                </View>
-                {categories[catType].map((cat: string, index: number) => (
-                  <View key={index} style={styles.settingListItem}>
-                    <Text style={styles.settingItemText}>{cat}</Text>
-                    <View style={{ flexDirection: 'row' }}>
-                      <TouchableOpacity onPress={() => onMoveCategory(catType, index, 'up')}><Ionicons name="arrow-up" size={20} color="#666" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => onMoveCategory(catType, index, 'down')}><Ionicons name="arrow-down" size={20} color="#666" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => onDeleteCategory(catType, cat)}><Ionicons name="trash" size={20} color="red" /></TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </>
-            ) : (
-              <>
-                <View style={{ marginBottom: 20, padding: 10, backgroundColor: '#f9f9f9', borderRadius: 10 }}>
-                  <Text style={styles.settingSubtitle}>新增帳本</Text>
-                  <TextInput
-                    style={[styles.input, { width: '100%', marginBottom: 10, color: '#333' }]}
-                    placeholder="帳本名稱"
-                    placeholderTextColor="#666"
-                    value={newAccName}
-                    onChangeText={setNewAccName}
-                  />
-                  <TextInput
-                    style={[styles.input, { width: '100%', marginBottom: 10, color: '#333' }]}
-                    placeholder="初始餘額"
-                    placeholderTextColor="#666"
-                    keyboardType="numeric"
-                    value={newAccBalance}
-                    onChangeText={setNewAccBalance}
-                  />
-
-                  {/* Custom Dropdown for Currency */}
-                  <View style={{ width: '100%', marginBottom: 10, zIndex: 1000 }}>
-                    <TouchableOpacity
-                      style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }]}
-                      onPress={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
-                    >
-                      <Text style={{ color: '#333' }}>
-                        {(() => {
-                          switch (newAccCurrency) {
-                            case 'TWD': return 'TWD - 新台幣';
-                            case 'USD': return 'USD - 美金';
-                            case 'JPY': return 'JPY - 日圓';
-                            case 'CNY': return 'CNY - 人民幣';
-                            case 'HKD': return 'HKD - 港幣';
-                            case 'MOP': return 'MOP - 澳門幣';
-                            case 'GBP': return 'GBP - 英鎊';
-                            case 'KRW': return 'KRW - 韓元';
-                            default: return newAccCurrency;
-                          }
-                        })()}
-                      </Text>
-                      <Ionicons name={isCurrencyDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#666" />
-                    </TouchableOpacity>
-
-                    {isCurrencyDropdownOpen && (
-                      <View style={{
-                        position: 'absolute',
-                        top: 50,
-                        left: 0,
-                        right: 0,
-                        backgroundColor: '#fff',
-                        borderWidth: 1,
-                        borderColor: '#ddd',
-                        borderRadius: 8,
-                        elevation: 5,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
-                        maxHeight: 200,
-                      }}>
-                        <ScrollView nestedScrollEnabled={true}>
-                          {['TWD', 'USD', 'JPY', 'CNY', 'HKD', 'MOP', 'GBP', 'KRW'].map((curr) => (
-                            <TouchableOpacity
-                              key={curr}
-                              style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' }}
-                              onPress={() => {
-                                setNewAccCurrency(curr);
-                                setIsCurrencyDropdownOpen(false);
-                              }}
-                            >
-                              <Text style={{ color: '#333' }}>
-                                {(() => {
-                                  switch (curr) {
-                                    case 'TWD': return 'TWD - 新台幣';
-                                    case 'USD': return 'USD - 美金';
-                                    case 'JPY': return 'JPY - 日圓';
-                                    case 'CNY': return 'CNY - 人民幣';
-                                    case 'HKD': return 'HKD - 港幣';
-                                    case 'MOP': return 'MOP - 澳門幣';
-                                    case 'GBP': return 'GBP - 英鎊';
-                                    case 'KRW': return 'KRW - 韓元';
-                                    default: return curr;
-                                  }
-                                })()}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.button, { backgroundColor: '#4CD964' }]}
-                    onPress={() => {
-                      if (newAccName && newAccBalance) {
-                        onAddAccount(newAccName, parseFloat(newAccBalance), newAccCurrency);
-                        setNewAccName('');
-                        setNewAccBalance('');
-                        setNewAccCurrency('TWD');
-                      } else {
-                        Alert.alert('錯誤', '請輸入名稱和初始餘額');
-                      }
-                    }}
-                  >
-                    <Text style={styles.buttonText}>新增帳本</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.settingSubtitle}>現有帳本</Text>
-                {accounts?.map((acc: any) => (
-                  <View key={acc.id} style={styles.settingListItem}>
-                    <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
-                    <TouchableOpacity onPress={() => onDeleteAccount(acc.id)}>
-                      <Ionicons name="trash" size={20} color="red" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </>
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 15, flex: 0, paddingVertical: 8 }]} onPress={onClose}>
-            <Text style={styles.buttonText}>關閉</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, onAddAccount }: any) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [name, setName] = useState('');
-  const [balance, setBalance] = useState('');
-  const [currency, setCurrency] = useState('TWD');
-
-  const handleAdd = () => {
-    onAddAccount(name, parseFloat(balance), currency);
-    setIsAdding(false);
-    setName('');
-    setBalance('');
-    setCurrency('TWD');
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.centeredView}>
-        <View style={styles.accountSelectModalView}>
-          <Text style={styles.modalTitle}>{isAdding ? '新增帳本' : '選擇帳本'}</Text>
-
-          {isAdding ? (
-            <>
-              <TextInput style={[styles.input, { width: '100%', marginBottom: 10 }]} placeholder="帳本名稱" value={name} onChangeText={setName} />
-              <TextInput style={[styles.input, { width: '100%', marginBottom: 10 }]} placeholder="初始餘額" keyboardType="numeric" value={balance} onChangeText={setBalance} />
-              <View style={{ width: '100%', marginBottom: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 8 }}>
-                <Picker selectedValue={currency} onValueChange={setCurrency}>
-                  <Picker.Item label="TWD - 新台幣" value="TWD" />
-                  <Picker.Item label="USD - 美金" value="USD" />
-                  <Picker.Item label="JPY - 日圓" value="JPY" />
-                  <Picker.Item label="CNY - 人民幣" value="CNY" />
-                  <Picker.Item label="HKD - 港幣" value="HKD" />
-                  <Picker.Item label="MOP - 澳門幣" value="MOP" />
-                  <Picker.Item label="GBP - 英鎊" value="GBP" />
-                  <Picker.Item label="KRW - 韓元" value="KRW" />
-                </Picker>
-              </View>
-              <View style={styles.modalButtonContainer}>
-                <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={() => setIsAdding(false)}>
-                  <Text style={styles.buttonText}>取消</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleAdd}>
-                  <Text style={styles.buttonText}>新增</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <ScrollView style={{ maxHeight: 300 }}>
-                {accounts.map((acc: any) => (
-                  <TouchableOpacity key={acc.id} style={styles.accountSelectItem} onPress={() => { onSelectAccount(acc.id); onClose(); }}>
-                    <Text style={styles.accountSelectItemText}>{acc.name} ({acc.currency})</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#4CD964', marginTop: 15 }]} onPress={() => setIsAdding(true)}>
-                <Text style={styles.buttonText}>+ 新增帳本</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}>
-                <Text style={styles.buttonText}>關閉</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// 編輯轉帳 Modal
-function EditTransferModal({
-  visible,
-  onClose,
-  onUpdate,
-  accounts,
-  amount,
-  setAmount,
-  fromAccount,
-  setFromAccount,
-  toAccount,
-  setToAccount,
-  date,
-  setDate,
-  description,
-  setDescription,
-  showDatePicker,
-  setShowDatePicker,
-  onDateChange
-}: any) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>編輯轉帳記錄</Text>
-          <Text style={styles.label}>金額</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="輸入金額"
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-          />
-          <Text style={styles.label}>從 (轉出)</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={fromAccount}
-              onValueChange={setFromAccount}
-              style={styles.picker}
-            >
-              <Picker.Item label="選擇帳戶" value={undefined} />
-              {accounts.map((acc: Account) => (
-                <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
-              ))}
-            </Picker>
-          </View>
-          <Text style={styles.label}>到 (轉入)</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={toAccount}
-              onValueChange={setToAccount}
-              style={styles.picker}
-            >
-              <Picker.Item label="選擇帳戶" value={undefined} />
-              {accounts.map((acc: Account) => (
-                <Picker.Item key={acc.id} label={acc.name} value={acc.id} />
-              ))}
-            </Picker>
-          </View>
-          <Text style={styles.label}>日期</Text>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text>{date.toLocaleDateString('zh-TW')}</Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-          <Text style={styles.label}>備註</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="輸入備註（選填）"
-            value={description}
-            onChangeText={setDescription}
-          />
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={onClose}
-            >
-              <Text style={styles.buttonText}>取消</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.confirmButton]}
-              onPress={onUpdate}
-            >
-              <Text style={styles.buttonText}>確認</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
