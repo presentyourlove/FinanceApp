@@ -86,7 +86,7 @@ export const initDatabase = async () => {
     `);
 
     // 檢查是否需要插入預設資料
-    const resAccounts = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`);
+    const resAccounts = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`) as any[];
     const countAccounts = resAccounts && resAccounts.length > 0 ? resAccounts[0].count : 0;
 
     if (countAccounts === 0) {
@@ -106,7 +106,7 @@ export const initDatabase = async () => {
     }
 
     // 2. 檢查預算 (Budgets)
-    const resBudgets = getRowsSync(`SELECT COUNT(id) as count FROM budgets;`);
+    const resBudgets = getRowsSync(`SELECT COUNT(id) as count FROM budgets;`) as any[];
     const countBudgets = resBudgets && resBudgets.length > 0 ? resBudgets[0].count : 0;
 
     if (countBudgets === 0) {
@@ -119,7 +119,7 @@ export const initDatabase = async () => {
     }
 
     // 3. 檢查存錢目標 (Goals)
-    const resGoals = getRowsSync(`SELECT COUNT(id) as count FROM goals;`);
+    const resGoals = getRowsSync(`SELECT COUNT(id) as count FROM goals;`) as any[];
     const countGoals = resGoals && resGoals.length > 0 ? resGoals[0].count : 0;
 
     if (countGoals === 0) {
@@ -180,7 +180,7 @@ export interface Goal {
  */
 export const getAccounts = async (): Promise<Account[]> => {
   // 返回行陣列
-  const rows = getRowsSync('SELECT * FROM accounts ORDER BY id ASC;');
+  const rows = getRowsSync('SELECT * FROM accounts ORDER BY id ASC;') as any[];
 
   return rows.map((row: any) => ({
     id: row.id,
@@ -235,6 +235,35 @@ export const deleteTransactionDB = async (id: number) => {
 };
 
 /**
+ * 執行轉帳交易
+ * 同時新增交易記錄並更新兩個帳戶的餘額
+ */
+export const performTransfer = async (fromAccountId: number, toAccountId: number, amount: number, date: Date, description: string) => {
+  const dateString = date.toISOString();
+
+  // 1. 新增轉帳交易
+  runSqlSync(
+    `INSERT INTO transactions (amount, type, date, description, accountId, targetAccountId) 
+     VALUES (?, 'transfer', ?, ?, ?, ?);`,
+    [amount, dateString, description, fromAccountId, toAccountId]
+  );
+
+  // 2. 更新轉出帳戶餘額 (減少)
+  const fromAccountRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [fromAccountId]) as any[];
+  if (fromAccountRows && fromAccountRows.length > 0) {
+    const newFromBalance = fromAccountRows[0].currentBalance - amount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newFromBalance, fromAccountId]);
+  }
+
+  // 3. 更新轉入帳戶餘額 (增加)
+  const toAccountRows = getRowsSync(`SELECT currentBalance FROM accounts WHERE id = ?;`, [toAccountId]) as any[];
+  if (toAccountRows && toAccountRows.length > 0) {
+    const newToBalance = toAccountRows[0].currentBalance + amount;
+    runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newToBalance, toAccountId]);
+  }
+};
+
+/**
  * 讀取特定帳本的交易記錄
  */
 export const getTransactionsByAccountDB = async (accountId: number): Promise<Transaction[]> => {
@@ -242,7 +271,7 @@ export const getTransactionsByAccountDB = async (accountId: number): Promise<Tra
   const rows = getRowsSync(
     `SELECT * FROM transactions WHERE accountId = ? OR targetAccountId = ? ORDER BY date DESC;`,
     [accountId, accountId]
-  );
+  ) as any[];
 
   return rows.map((row: any) => ({
     id: row.id,
@@ -274,7 +303,7 @@ export const deleteAccountDB = async (id: number) => {
   const transactionCheck = getRowsSync(
     `SELECT COUNT(id) as count FROM transactions WHERE accountId = ? OR targetAccountId = ?;`,
     [id, id]
-  );
+  ) as any[];
   // 修正：transactionCheck 是行陣列
   const count = transactionCheck && transactionCheck.length > 0 ? transactionCheck[0].count : 0;
 
@@ -291,7 +320,7 @@ export const deleteAccountDB = async (id: number) => {
 // --- 預算操作 ---
 
 export const getBudgets = async (): Promise<Budget[]> => {
-  const rows = getRowsSync('SELECT * FROM budgets;');
+  const rows = getRowsSync('SELECT * FROM budgets;') as any[];
   return rows.map((row: any) => ({
     id: row.id,
     category: row.category,
@@ -319,7 +348,7 @@ export const deleteBudget = async (id: number) => {
 // --- 存錢目標操作 ---
 
 export const getGoals = async (): Promise<Goal[]> => {
-  const rows = getRowsSync('SELECT * FROM goals;');
+  const rows = getRowsSync('SELECT * FROM goals;') as any[];
   return rows.map((row: any) => ({
     id: row.id,
     name: row.name,
@@ -369,7 +398,7 @@ export const getCategorySpending = async (year: number, month: number): Promise<
      WHERE type = 'expense' AND strftime('%Y-%m', date) = ?
      GROUP BY description;`,
     [targetMonthStr]
-  );
+  ) as any[];
 
   const result: { [key: string]: number } = {};
   rows.forEach((row: any) => {
@@ -386,7 +415,7 @@ export const getCategorySpending = async (year: number, month: number): Promise<
 export const getDistinctCategories = async (): Promise<string[]> => {
   const rows = getRowsSync(
     `SELECT DISTINCT description FROM transactions WHERE type = 'expense' ORDER BY description;`
-  );
+  ) as any[];
   return rows.map((row: any) => row.description).filter((d: string) => d);
 };
 
@@ -398,6 +427,7 @@ export const dbOperations = {
   addTransactionDB,
   updateTransactionDB,
   deleteTransactionDB,
+  performTransfer,
   getTransactionsByAccountDB,
   addAccountDB,
   deleteAccountDB,

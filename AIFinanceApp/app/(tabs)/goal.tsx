@@ -9,8 +9,12 @@ import {
     TextInput,
     Alert,
     TouchableWithoutFeedback,
-    Keyboard
+    Keyboard,
+    Switch,
+    Pressable,
+    Platform
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { dbOperations, Goal } from '../services/database';
@@ -35,10 +39,48 @@ export default function GoalScreen() {
     const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
     const [adjustAmount, setAdjustAmount] = useState('');
 
+    // Sync to Ledger States
+    const [accounts, setAccounts] = useState<{ id: number; name: string; currentBalance: number }[]>([]);
+    const [isSyncEnabled, setIsSyncEnabled] = useState(true);
+    const [selectedFromAccount, setSelectedFromAccount] = useState<number | null>(null);
+    const [selectedToAccount, setSelectedToAccount] = useState<number | null>(null);
+
+    // iOS Picker Modal State
+    const [showPickerModal, setShowPickerModal] = useState(false);
+    const [pickerMode, setPickerMode] = useState<'from' | 'to'>('from');
+    const [tempPickerValue, setTempPickerValue] = useState<number | null>(null);
+
     const loadGoals = async () => {
         try {
-            const data = await dbOperations.getGoals();
-            setGoals(data);
+            const loadedGoals = await dbOperations.getGoals();
+            const loadedAccounts = await dbOperations.getAccounts();
+            setAccounts(loadedAccounts);
+
+            // Sort goals:
+            // 1. Active goals first, Completed goals last
+            // 2. For active goals: Sort by deadline (closest first), no deadline last
+            const sortedGoals = loadedGoals.sort((a: Goal, b: Goal) => {
+                const aCompleted = a.currentAmount >= a.targetAmount;
+                const bCompleted = b.currentAmount >= b.targetAmount;
+
+                if (aCompleted !== bCompleted) {
+                    return aCompleted ? 1 : -1; // Active first
+                }
+
+                if (!aCompleted) {
+                    // Both are active, sort by deadline
+                    if (a.deadline && b.deadline) {
+                        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+                    }
+                    if (a.deadline) return -1; // a has deadline, comes first
+                    if (b.deadline) return 1;  // b has deadline, comes first
+                    return 0;
+                }
+
+                return 0; // Both completed, keep original order
+            });
+
+            setGoals(sortedGoals);
         } catch (error) {
             console.error(error);
         }
@@ -121,6 +163,10 @@ export default function GoalScreen() {
         setAdjustingGoal(goal);
         setAdjustType(type);
         setAdjustAmount('');
+        // Reset sync states
+        setIsSyncEnabled(true);
+        setSelectedFromAccount(null);
+        setSelectedToAccount(null);
         setAmountModalVisible(true);
     };
 
@@ -142,17 +188,110 @@ export default function GoalScreen() {
         }
 
         try {
+            // Handle Sync to Ledger
+            if (isSyncEnabled && adjustType === 'add') {
+                const date = new Date();
+                const description = adjustingGoal.name;
+
+                if (selectedFromAccount && selectedToAccount) {
+                    // Transfer
+                    await dbOperations.performTransfer(selectedFromAccount, selectedToAccount, amount, date, description);
+                } else if (selectedFromAccount && !selectedToAccount) {
+                    // Expense (From Account -> N/A)
+                    await dbOperations.addTransactionDB({
+                        amount,
+                        type: 'expense',
+                        date,
+                        description,
+                        accountId: selectedFromAccount
+                    });
+                    // Update account balance
+                    const acc = (await dbOperations.getAccounts()).find(a => a.id === selectedFromAccount);
+                    if (acc) {
+                        await dbOperations.updateAccountBalanceDB(acc.id, acc.currentBalance - amount);
+                    }
+                } else if (!selectedFromAccount && selectedToAccount) {
+                    // Income (N/A -> To Account)
+                    await dbOperations.addTransactionDB({
+                        amount,
+                        type: 'income',
+                        date,
+                        description,
+                        accountId: selectedToAccount
+                    });
+                    // Update account balance
+                    const acc = (await dbOperations.getAccounts()).find(a => a.id === selectedToAccount);
+                    if (acc) {
+                        await dbOperations.updateAccountBalanceDB(acc.id, acc.currentBalance + amount);
+                    }
+                }
+                // If both are null, no transaction is created
+            }
+
             await dbOperations.updateGoalAmount(adjustingGoal.id, newAmount);
             setAmountModalVisible(false);
             loadGoals();
         } catch (error) {
             console.error(error);
-            Alert.alert('錯誤', '更新進度失敗');
+            Alert.alert('錯誤', '更新失敗');
         }
+    };
+
+    const openPickerModal = (mode: 'from' | 'to') => {
+        Keyboard.dismiss();
+        setPickerMode(mode);
+        setTempPickerValue(mode === 'from' ? selectedFromAccount : selectedToAccount);
+        setShowPickerModal(true);
+    };
+
+    const handlePickerConfirm = () => {
+        if (pickerMode === 'from') {
+            setSelectedFromAccount(tempPickerValue);
+        } else {
+            setSelectedToAccount(tempPickerValue);
+        }
+        setShowPickerModal(false);
+    };
+
+    const renderAccountPicker = (selectedValue: number | null, onValueChange: (val: number | null) => void, mode: 'from' | 'to') => {
+        const selectedAccount = accounts.find(a => a.id === selectedValue);
+        return (
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => openPickerModal(mode)}
+            >
+                <Text style={styles.pickerButtonText}>
+                    {selectedAccount ? selectedAccount.name : '不適用'}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="#666" />
+            </TouchableOpacity>
+        );
+    };
+
+    const calculateDailySuggestion = (goal: Goal) => {
+        if (!goal.deadline) return null;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const deadlineDate = new Date(goal.deadline);
+        deadlineDate.setHours(0, 0, 0, 0);
+
+        const timeDiff = deadlineDate.getTime() - today.getTime();
+        const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+        if (daysRemaining < 0) return '已過期';
+        if (daysRemaining === 0) return '今天是截止日';
+
+        const remainingAmount = goal.targetAmount - goal.currentAmount;
+        if (remainingAmount <= 0) return '已達成';
+
+        const dailyAmount = Math.ceil(remainingAmount / daysRemaining);
+        return `每日建議存入: $${dailyAmount.toLocaleString()}`;
     };
 
     const renderItem = ({ item }: { item: Goal }) => {
         const progress = item.targetAmount > 0 ? (item.currentAmount / item.targetAmount) * 100 : 0;
+        const suggestion = calculateDailySuggestion(item);
 
         return (
             <TouchableOpacity style={styles.card} onPress={() => openEditModal(item)}>
@@ -168,6 +307,10 @@ export default function GoalScreen() {
                 <View style={styles.progressBarContainer}>
                     <View style={[styles.progressBar, { width: `${Math.min(progress, 100)}%` }]} />
                 </View>
+
+                {suggestion && (
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                )}
 
                 <View style={styles.progressRow}>
                     <Text style={styles.progressText}>目前存入: ${item.currentAmount} ({progress.toFixed(1)}%)</Text>
@@ -215,105 +358,180 @@ export default function GoalScreen() {
 
             {/* Goal Add/Edit Modal */}
             <Modal visible={isModalVisible} animationType="slide" transparent={true}>
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.centeredView}>
-                        <TouchableWithoutFeedback>
-                            <View style={styles.modalView}>
-                                <Text style={styles.modalTitle}>{editingGoal ? '編輯目標' : '新增目標'}</Text>
+                <View style={styles.centeredView}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+                    <View style={styles.modalView}>
+                        <Text style={styles.modalTitle}>{editingGoal ? '編輯目標' : '新增目標'}</Text>
 
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="目標名稱 (例如: 新手機)"
-                                    placeholderTextColor="#666"
-                                    value={name}
-                                    onChangeText={setName}
+                        <TextInput
+                            style={styles.input}
+                            placeholder="目標名稱 (例如: 新手機)"
+                            placeholderTextColor="#666"
+                            value={name}
+                            onChangeText={setName}
+                        />
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="目標金額"
+                            placeholderTextColor="#666"
+                            value={targetAmount}
+                            onChangeText={setTargetAmount}
+                            keyboardType="numeric"
+                        />
+
+                        <TouchableOpacity
+                            style={styles.dateButton}
+                            onPress={() => setShowDatePicker(!showDatePicker)}
+                        >
+                            <Text style={deadline ? styles.dateText : styles.datePlaceholder}>
+                                {deadline || '截止日期 (選填)'}
+                            </Text>
+                            <Ionicons name="calendar-outline" size={20} color="#666" />
+                        </TouchableOpacity>
+
+                        {showDatePicker && (
+                            <View style={styles.datePickerContainer}>
+                                <DateTimePicker
+                                    value={selectedDate}
+                                    mode="date"
+                                    display="compact"
+                                    onChange={handleDateChange}
+                                    minimumDate={new Date()}
+                                    textColor="#000000"
                                 />
-
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="目標金額"
-                                    placeholderTextColor="#666"
-                                    value={targetAmount}
-                                    onChangeText={setTargetAmount}
-                                    keyboardType="numeric"
-                                />
-
-                                <TouchableOpacity
-                                    style={styles.dateButton}
-                                    onPress={() => setShowDatePicker(!showDatePicker)}
-                                >
-                                    <Text style={deadline ? styles.dateText : styles.datePlaceholder}>
-                                        {deadline || '截止日期 (選填)'}
-                                    </Text>
-                                    <Ionicons name="calendar-outline" size={20} color="#666" />
-                                </TouchableOpacity>
-
-                                {showDatePicker && (
-                                    <View style={styles.datePickerContainer}>
-                                        <DateTimePicker
-                                            value={selectedDate}
-                                            mode="date"
-                                            display="compact"
-                                            onChange={handleDateChange}
-                                            minimumDate={new Date()}
-                                            textColor="#000000"
-                                        />
-                                    </View>
-                                )}
-
-                                <View style={styles.modalButtons}>
-                                    <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                                        <Text style={styles.buttonText}>取消</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleSaveGoal}>
-                                        <Text style={styles.buttonText}>{editingGoal ? '更新' : '新增'}</Text>
-                                    </TouchableOpacity>
-                                </View>
                             </View>
-                        </TouchableWithoutFeedback>
+                        )}
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setModalVisible(false)}>
+                                <Text style={styles.buttonText}>取消</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleSaveGoal}>
+                                <Text style={styles.buttonText}>{editingGoal ? '更新' : '新增'}</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </TouchableWithoutFeedback>
+                </View>
             </Modal>
 
             {/* Adjust Amount Modal */}
             <Modal visible={isAmountModalVisible} animationType="fade" transparent={true}>
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.centeredView}>
-                        <TouchableWithoutFeedback>
-                            <View style={styles.modalView}>
-                                <Text style={styles.modalTitle}>
-                                    {adjustType === 'add' ? '增加存款' : '減少存款'}
-                                </Text>
-                                <Text style={styles.modalSubtitle}>
-                                    目前金額: ${adjustingGoal?.currentAmount}
-                                </Text>
+                <View style={styles.centeredView}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+                    <View style={styles.modalView}>
+                        <Text style={styles.modalTitle}>
+                            {adjustType === 'add' ? '增加存款' : '減少存款'}
+                        </Text>
+                        <Text style={styles.modalSubtitle}>
+                            目前金額: ${adjustingGoal?.currentAmount}
+                        </Text>
 
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="輸入金額"
-                                    placeholderTextColor="#666"
-                                    value={adjustAmount}
-                                    onChangeText={setAdjustAmount}
-                                    keyboardType="numeric"
-                                    autoFocus={true}
-                                />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="輸入金額"
+                            placeholderTextColor="#666"
+                            value={adjustAmount}
+                            onChangeText={setAdjustAmount}
+                            keyboardType="numeric"
+                            autoFocus={true}
+                        />
 
-                                <View style={styles.modalButtons}>
-                                    <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setAmountModalVisible(false)}>
-                                        <Text style={styles.buttonText}>取消</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleConfirmAdjust}>
-                                        <Text style={styles.buttonText}>確認</Text>
-                                    </TouchableOpacity>
+                        {adjustType === 'add' && (
+                            <View style={styles.syncContainer}>
+                                <View style={styles.syncHeader}>
+                                    <Text style={styles.syncLabel}>同步記帳</Text>
+                                    <Switch
+                                        value={isSyncEnabled}
+                                        onValueChange={setIsSyncEnabled}
+                                        trackColor={{ false: "#767577", true: "#34C759" }}
+                                    />
                                 </View>
+
+                                {isSyncEnabled && (
+                                    <View style={styles.pickersContainer}>
+                                        <View style={styles.pickerWrapper}>
+                                            <Text style={styles.pickerLabel}>從 (轉出)</Text>
+                                            {renderAccountPicker(selectedFromAccount, setSelectedFromAccount, 'from')}
+                                        </View>
+
+                                        <Ionicons name="arrow-forward" size={20} color="#666" style={{ marginTop: 20 }} />
+
+                                        <View style={styles.pickerWrapper}>
+                                            <Text style={styles.pickerLabel}>到 (轉入)</Text>
+                                            {renderAccountPicker(selectedToAccount, setSelectedToAccount, 'to')}
+                                        </View>
+                                    </View>
+                                )}
                             </View>
-                        </TouchableWithoutFeedback>
+                        )}
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setAmountModalVisible(false)}>
+                                <Text style={styles.buttonText}>取消</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleConfirmAdjust}>
+                                <Text style={styles.buttonText}>確認</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </TouchableWithoutFeedback>
+
+                    {/* Custom Account Picker Overlay */}
+                    <AccountPickerOverlay
+                        visible={showPickerModal}
+                        onClose={() => setShowPickerModal(false)}
+                        onSelect={(id: number | null) => {
+                            setTempPickerValue(id);
+                            if (pickerMode === 'from') {
+                                setSelectedFromAccount(id);
+                            } else {
+                                setSelectedToAccount(id);
+                            }
+                            setShowPickerModal(false);
+                        }}
+                        accounts={accounts}
+                    />
+                </View>
             </Modal>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
+
+// Custom Account Picker Overlay Component
+const AccountPickerOverlay = ({ visible, onClose, onSelect, accounts }: any) => {
+    if (!visible) return null;
+    return (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
+            <Pressable style={styles.pickerModalOverlay} onPress={onClose}>
+                <View style={styles.pickerModalContent}>
+                    <View style={styles.pickerModalHeader}>
+                        <Text style={styles.pickerModalTitle}>選擇帳戶</Text>
+                        <TouchableOpacity onPress={onClose}>
+                            <Ionicons name="close" size={24} color="#666" />
+                        </TouchableOpacity>
+                    </View>
+                    <FlatList
+                        data={[{ id: null, name: '不適用' }, ...accounts]}
+                        keyExtractor={(item) => item.id?.toString() || 'null'}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={styles.pickerItem}
+                                onPress={() => onSelect(item.id)}
+                            >
+                                <Text style={styles.pickerItemText}>{item.name}</Text>
+                                {item.id !== null && (
+                                    <Text style={styles.pickerItemSubtext}>
+                                        ${item.currentBalance?.toLocaleString()}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            </Pressable>
+        </View>
+    );
+};
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F2F2F7' },
@@ -368,4 +586,32 @@ const styles = StyleSheet.create({
     cancelButton: { backgroundColor: '#FF3B30' },
     confirmButton: { backgroundColor: '#007AFF' },
     buttonText: { color: 'white', fontWeight: 'bold' },
+    syncContainer: { width: '100%', marginBottom: 15 },
+    syncHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    syncLabel: { fontSize: 16, color: '#333' },
+    pickersContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    pickerWrapper: { flex: 1, maxWidth: '45%' },
+    pickerLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
+    pickerBox: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
+    pickerButton: {
+        width: '100%',
+        height: 50,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        backgroundColor: '#fff'
+    },
+    pickerButtonText: { fontSize: 16, color: '#333' },
+    pickerModalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+    pickerModalContent: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 30, maxHeight: '60%' },
+    pickerModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    pickerModalTitle: { fontSize: 18, fontWeight: 'bold' },
+    pickerItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    pickerItemText: { fontSize: 16, color: '#333' },
+    pickerItemSubtext: { fontSize: 14, color: '#666' },
+    suggestionText: { fontSize: 14, color: '#007AFF', marginBottom: 5, fontWeight: '500' }
 });

@@ -150,15 +150,25 @@ export default function TransactionScreen() {
     loadData();
   }, []);
 
-  // 3. 載入類別 (每次進入頁面時)
+  // 3. 載入類別和重新載入帳戶資料 (每次進入頁面時)
   useFocusEffect(
     React.useCallback(() => {
       const loadCats = async () => {
         const cats = await CategoryStorage.loadCategories();
         setCategories(cats);
       };
+      const reloadData = async () => {
+        const loadedAccounts = await dbOperations.getAccounts();
+        setAccounts(loadedAccounts);
+
+        if (selectedAccountId !== undefined) {
+          const loadedTransactions = await dbOperations.getTransactionsByAccountDB(selectedAccountId);
+          setTransactions(loadedTransactions);
+        }
+      };
       loadCats();
-    }, [])
+      reloadData();
+    }, [selectedAccountId])
   );
 
   // 2. 載入特定帳本的交易記錄 (選定的帳本改變時)
