@@ -11,13 +11,13 @@ const defaultSettings: CurrencySettings = {
     mainCurrency: 'TWD',
     exchangeRates: {
         'TWD': 1,
-        'USD': 31.39126,
-        'JPY': 0.20099,
-        'CNY': 4.43754,
-        'HKD': 4.03226,
-        'MOP': 3.90900,
-        'GBP': 41.54549,
-        'KRW': 0.02139
+        'USD': 0.031856,
+        'JPY': 4.975311,
+        'CNY': 0.225357,
+        'HKD': 0.480073,
+        'MOP': 0.255819,
+        'GBP': 0.024070,
+        'KRW': 46.75543
     }
 };
 
@@ -29,6 +29,16 @@ export const loadCurrencySettings = async (): Promise<CurrencySettings> => {
         const stored = await AsyncStorage.getItem(CURRENCY_SETTINGS_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
+
+            // Check if rates seem to be in the old format (e.g. USD ~ 30 instead of ~0.03)
+            // If USD rate is > 1, it's likely the old format (TWD per USD), so we reset to default.
+            // This is a one-time migration fix.
+            if (parsed.exchangeRates['USD'] > 1) {
+                console.log('Detected old exchange rate format, resetting to defaults.');
+                await saveCurrencySettings(defaultSettings);
+                return defaultSettings;
+            }
+
             // Merge with default rates to ensure all currencies exist if new ones are added
             return {
                 mainCurrency: parsed.mainCurrency || defaultSettings.mainCurrency,

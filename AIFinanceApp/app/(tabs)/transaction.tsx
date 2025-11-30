@@ -206,7 +206,7 @@ export default function TransactionScreen() {
       await dbOperations.updateAccountBalanceDB(targetId, newTargetBalance);
       await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉出至 ${targetAcc.name}`, accountId: sourceId, targetAccountId: targetId });
       await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉入自 ${sourceAcc.name}`, accountId: targetId, targetAccountId: sourceId });
-      
+
       const loadedAccounts = await dbOperations.getAccounts();
       setAccounts(loadedAccounts);
       setTransferModalVisible(false);
@@ -290,28 +290,30 @@ export default function TransactionScreen() {
 
   const handleDeleteTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
-    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [{ text: "取消", style: "cancel" }, { text: "刪除", style: "destructive", onPress: async () => {
-      try {
-        const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
-        if (!currentAcc) throw new Error("Account not found");
-        const newBalance = currentAcc.currentBalance + (editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount);
-        await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-        await dbOperations.deleteTransactionDB(editingTransaction.id);
-        setEditModalVisible(false);
-        await refreshData();
-        Alert.alert("成功", "交易已刪除");
-      } catch (error) {
-        console.error(error);
-        Alert.alert("錯誤", "刪除失敗");
+    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [{ text: "取消", style: "cancel" }, {
+      text: "刪除", style: "destructive", onPress: async () => {
+        try {
+          const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+          if (!currentAcc) throw new Error("Account not found");
+          const newBalance = currentAcc.currentBalance + (editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount);
+          await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
+          await dbOperations.deleteTransactionDB(editingTransaction.id);
+          setEditModalVisible(false);
+          await refreshData();
+          Alert.alert("成功", "交易已刪除");
+        } catch (error) {
+          console.error(error);
+          Alert.alert("錯誤", "刪除失敗");
+        }
       }
-    }}]);
+    }]);
   };
 
   const renderItem = ({ item }: { item: Transaction }) => {
     const isTransfer = item.type === 'transfer';
     const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
     const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || '未知帳本';
-    
+
     let amountSign: string, amountColor: string, descriptionText: string;
     if (isTransfer) {
       if (item.accountId === selectedAccountId) {
@@ -484,7 +486,7 @@ function TransferModal({ visible, onClose, onTransfer, accounts, colors, styles 
         </TouchableOpacity>
       </View>
       <View style={styles.modalButtonContainer}>
-        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}><Text style={[styles.buttonText, {color: colors.text}]}>取消</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}><Text style={[styles.buttonText, { color: colors.text }]}>取消</Text></TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}><Text style={styles.buttonText}>確認</Text></TouchableOpacity>
       </View>
     </>
@@ -508,7 +510,7 @@ function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, color
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}><Text style={[styles.buttonText, {color: colors.text}]}>關閉</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}><Text style={[styles.buttonText, { color: colors.text }]}>關閉</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -528,7 +530,7 @@ function EditTransferModal({ visible, onClose, onUpdate, accounts, amount, setAm
           <Text style={styles.label}>到 (轉入)</Text>
           <View style={styles.pickerContainer}><Picker selectedValue={toAccount} onValueChange={setToAccount} style={{ color: colors.text }} dropdownIconColor={colors.text}><Picker.Item label="選擇帳戶" value={undefined} />{accounts.map((acc: Account) => (<Picker.Item key={acc.id} label={acc.name} value={acc.id} />))}</Picker></View>
           <Text style={styles.label}>日期</Text>
-          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}><Text style={{color: colors.text}}>{date.toLocaleDateString('zh-TW')}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}><Text style={{ color: colors.text }}>{date.toLocaleDateString('zh-TW')}</Text></TouchableOpacity>
           {showDatePicker && (<DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />)}
           <Text style={styles.label}>備註</Text>
           <TextInput style={styles.input} placeholder="輸入備註（選填）" value={description} onChangeText={setDescription} placeholderTextColor={colors.subtleText} />

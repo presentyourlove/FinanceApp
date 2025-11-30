@@ -82,7 +82,9 @@ export default function AnalysisScreen() {
                         const accRate = rates[t.accountCurrency] || 1;
 
                         // Convert amount to main currency
-                        const amountInMain = t.amount * accRate;
+                        // Rate: 1 Main = X AccountCurrency
+                        // AmountMain = AmountAccount / Rate
+                        const amountInMain = t.amount / accRate;
 
                         if (t.type === 'income') {
                             income += amountInMain;
@@ -123,7 +125,6 @@ export default function AnalysisScreen() {
             loadData();
         }, [period, colors]) // Reload when period or theme changes
     );
-
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>

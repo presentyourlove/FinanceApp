@@ -79,10 +79,11 @@ export default function BudgetScreen() {
                         const tDate = new Date(t.date);
                         if (tDate >= startDate && tDate <= now) {
                             // Convert amount: Acc -> Main -> Budget
-                            // AmountInMain = Amount * AccRate
-                            // AmountInBudget = AmountInMain / BudgetRate
+                            // Rate is defined as: 1 Main = X Currency
+                            // AmountInMain = Amount / AccRate
+                            // AmountInBudget = AmountInMain * BudgetRate
                             const accRate = rates[t.accountCurrency] || 1;
-                            const amountInBudget = (t.amount * accRate) / budgetRate;
+                            const amountInBudget = (t.amount / accRate) * budgetRate;
                             totalSpent += amountInBudget;
                         }
                     }

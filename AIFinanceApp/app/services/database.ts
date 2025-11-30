@@ -64,8 +64,6 @@ export const initDatabase = async () => {
     `);
 
     // 建立預算表 (Budgets)
-    // 新增 period 欄位: 'monthly', 'weekly', 'yearly'
-    // 新增 currency 欄位
     runSqlSync(`
       CREATE TABLE IF NOT EXISTS budgets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +75,6 @@ export const initDatabase = async () => {
     `);
 
     // 建立存錢目標表 (Goals)
-    // 新增 currency 欄位
     runSqlSync(`
       CREATE TABLE IF NOT EXISTS goals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -723,6 +720,10 @@ export const processInvestmentAction = async (
   }
 };
 
+const updateStockPrice = async (name: string, price: number) => {
+  runSqlSync(`UPDATE investments SET currentPrice = ? WHERE name = ? AND type = 'stock' AND status = 'active';`, [price, name]);
+};
+
 // 匯出所有公開操作
 export const dbOperations = {
   initDatabase,
@@ -756,6 +757,7 @@ export const dbOperations = {
   getInvestments,
   updateInvestment,
   processInvestmentAction,
+  updateStockPrice,
   // 為了方便除錯，可以新增清除所有數據的函數
   clearAllData: async () => {
     runSqlSync(`DROP TABLE IF EXISTS transactions;`);

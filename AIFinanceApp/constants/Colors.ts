@@ -14,6 +14,8 @@ export default {
     borderColor: '#E5E5EA',
     inputBackground: '#F9F9F9',
     subtleText: '#666',
+    income: '#34C759',
+    expense: '#FF3B30',
   },
   dark: {
     text: '#fff',
@@ -26,5 +28,7 @@ export default {
     borderColor: '#38383A',
     inputBackground: '#2C2C2E',
     subtleText: '#999',
+    income: '#32D74B',
+    expense: '#FF453A',
   },
 };

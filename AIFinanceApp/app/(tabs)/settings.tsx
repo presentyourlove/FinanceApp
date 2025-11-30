@@ -429,7 +429,7 @@ export default function SettingsScreen() {
                         <Text style={styles.subtitle}>匯率設定</Text>
                         <Text style={[styles.description, { color: colors.subtleText }]}>
                             請選擇主幣別，並設定其他幣別相對於主幣別的匯率。
-                            {"\n"}(例如：主幣別為 TWD，USD 匯率設為 32.5)
+                            {"\n"}(例如：主幣別為 TWD，USD 匯率設為 0.03)
                         </Text>
 
                         <View style={styles.card}>
