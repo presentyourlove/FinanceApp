@@ -8,7 +8,6 @@ import {
     Modal,
     TextInput,
     Alert,
-
     ScrollView,
     TouchableWithoutFeedback,
     Keyboard
@@ -18,37 +17,86 @@ import { Ionicons } from '@expo/vector-icons';
 import { dbOperations, Budget } from '../services/database';
 import { useFocusEffect } from 'expo-router';
 import * as CategoryStorage from '../utils/categoryStorage';
+import * as CurrencyStorage from '../utils/currencyStorage';
+import { useTheme } from '../context/ThemeContext';
 
 export default function BudgetScreen() {
+    const { colors, isDark } = useTheme();
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [isModalVisible, setModalVisible] = useState(false);
     const [category, setCategory] = useState('');
     const [amount, setAmount] = useState('');
     const [period, setPeriod] = useState('monthly');
+    const [currency, setCurrency] = useState('TWD');
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // Selection Mode: 'none' (form), 'category', 'period'
-    const [selectionMode, setSelectionMode] = useState<'none' | 'category' | 'period'>('none');
+    // Selection Mode: 'none' (form), 'category', 'period', 'currency'
+    const [selectionMode, setSelectionMode] = useState<'none' | 'category' | 'period' | 'currency'>('none');
 
-    // 新增狀態
-    const [spending, setSpending] = useState<{ [key: string]: number }>({});
+    // Spending map: budgetId -> amount
+    const [spendingMap, setSpendingMap] = useState<{ [key: number]: number }>({});
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+
+    const currencies = ['TWD', 'USD', 'JPY', 'EUR', 'KRW', 'CNY'];
 
     const loadBudgets = async () => {
         try {
-            const budgetData = await dbOperations.getBudgets();
+            // Fetch data in parallel
+            // Fetch transactions from the start of the current year to cover all budget periods (weekly, monthly, yearly)
+            const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+
+            const [budgetData, currencySettings, transactions] = await Promise.all([
+                dbOperations.getBudgets(),
+                CurrencyStorage.loadCurrencySettings(),
+                dbOperations.getTransactionsWithAccount(startOfYear)
+            ]);
+
             setBudgets(budgetData);
+            const rates = currencySettings.exchangeRates;
 
-            // 取得本月支出
+            const newSpendingMap: { [key: number]: number } = {};
             const now = new Date();
-            const spendingData = await dbOperations.getCategorySpending(now.getFullYear(), now.getMonth() + 1);
-            setSpending(spendingData);
 
-            // 從 AsyncStorage 載入類別
+            // Pre-calculate start dates for different periods
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfYearDate = new Date(now.getFullYear(), 0, 1);
+
+            budgetData.forEach(budget => {
+                const budgetRate = rates[budget.currency] || 1;
+                let totalSpent = 0;
+
+                let startDate;
+                if (budget.period === 'weekly') startDate = startOfWeek;
+                else if (budget.period === 'monthly') startDate = startOfMonth;
+                else startDate = startOfYearDate;
+
+                transactions.forEach(t => {
+                    if (t.type === 'expense' && (t.description?.startsWith(budget.category))) {
+                        const tDate = new Date(t.date);
+                        if (tDate >= startDate && tDate <= now) {
+                            // Convert amount: Acc -> Main -> Budget
+                            // AmountInMain = Amount * AccRate
+                            // AmountInBudget = AmountInMain / BudgetRate
+                            const accRate = rates[t.accountCurrency] || 1;
+                            const amountInBudget = (t.amount * accRate) / budgetRate;
+                            totalSpent += amountInBudget;
+                        }
+                    }
+                });
+
+                newSpendingMap[budget.id] = Math.round(totalSpent);
+            });
+
+            setSpendingMap(newSpendingMap);
+
+            // Load categories
             const cats = await CategoryStorage.loadCategories();
             const expenseCategories = cats.expense;
             setAvailableCategories(expenseCategories);
-            // 如果還沒選類別，預設選第一個
             if (!category && expenseCategories.length > 0) {
                 setCategory(expenseCategories[0]);
             }
@@ -70,9 +118,9 @@ export default function BudgetScreen() {
         }
         try {
             if (editingId) {
-                await dbOperations.updateBudget(editingId, category, parseFloat(amount), period);
+                await dbOperations.updateBudget(editingId, category, parseFloat(amount), period, currency);
             } else {
-                await dbOperations.addBudget(category, parseFloat(amount), period);
+                await dbOperations.addBudget(category, parseFloat(amount), period, currency);
             }
 
             closeModal();
@@ -87,6 +135,7 @@ export default function BudgetScreen() {
         setCategory('');
         setAmount('');
         setPeriod('monthly');
+        setCurrency('TWD');
         setEditingId(null);
         setSelectionMode('none');
         setModalVisible(false);
@@ -96,6 +145,7 @@ export default function BudgetScreen() {
         setCategory(budget.category);
         setAmount(budget.amount.toString());
         setPeriod(budget.period);
+        setCurrency(budget.currency || 'TWD');
         setEditingId(budget.id);
         setSelectionMode('none');
         setModalVisible(true);
@@ -120,7 +170,7 @@ export default function BudgetScreen() {
     };
 
     const renderItem = ({ item }: { item: Budget }) => {
-        const currentSpent = spending[item.category] || 0;
+        const currentSpent = spendingMap[item.id] || 0;
         const progress = item.amount > 0 ? Math.min(currentSpent / item.amount, 1) : 0;
         const percent = item.amount > 0 ? (currentSpent / item.amount * 100).toFixed(2) : '0.00';
         const barColor = parseFloat(percent) > 100 ? '#FF3B30' : '#34C759';
@@ -130,51 +180,65 @@ export default function BudgetScreen() {
                 item.period === 'yearly' ? '每年' : item.period;
 
         return (
-            <TouchableOpacity style={styles.card} onPress={() => openEditModal(item)}>
+            <TouchableOpacity
+                style={[styles.card, { backgroundColor: colors.card }]}
+                onPress={() => openEditModal(item)}
+            >
                 <View style={styles.cardHeader}>
-                    <Text style={styles.categoryText}>{item.category}</Text>
+                    <Text style={[styles.categoryText, { color: colors.text }]}>{item.category}</Text>
                     <TouchableOpacity onPress={() => handleDeleteBudget(item.id)}>
                         <Ionicons name="trash-outline" size={20} color="#FF3B30" />
                     </TouchableOpacity>
                 </View>
-                <Text style={styles.amountText}>預算: ${item.amount}</Text>
-                <Text style={styles.periodText}>週期: {periodLabel}</Text>
+                <Text style={[styles.amountText, { color: colors.subtleText }]}>預算: {item.currency} ${item.amount}</Text>
+                <Text style={[styles.periodText, { color: colors.subtleText }]}>週期: {periodLabel}</Text>
 
-                <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBarContainer, { backgroundColor: isDark ? '#333' : '#E5E5EA' }]}>
                     <View style={[styles.progressBar, { width: `${progress * 100}%`, backgroundColor: barColor }]} />
                 </View>
-                <Text style={styles.progressText}>目前花費: ${currentSpent} ({percent}%)</Text>
+                <Text style={[styles.progressText, { color: colors.subtleText }]}>目前花費: ${currentSpent} ({percent}%)</Text>
             </TouchableOpacity>
         );
     };
 
     const renderSelectionList = () => {
-        const items = selectionMode === 'category' ? availableCategories : ['monthly', 'weekly', 'yearly'];
-        const onSelect = (item: string) => {
-            if (selectionMode === 'category') setCategory(item);
-            else setPeriod(item);
-            setSelectionMode('none');
-        };
+        let items: string[] = [];
+        let onSelect: (item: string) => void = () => { };
+        let currentSelected = '';
+
+        if (selectionMode === 'category') {
+            items = availableCategories;
+            onSelect = (item) => { setCategory(item); setSelectionMode('none'); };
+            currentSelected = category;
+        } else if (selectionMode === 'period') {
+            items = ['monthly', 'weekly', 'yearly'];
+            onSelect = (item) => { setPeriod(item); setSelectionMode('none'); };
+            currentSelected = period;
+        } else if (selectionMode === 'currency') {
+            items = currencies;
+            onSelect = (item) => { setCurrency(item); setSelectionMode('none'); };
+            currentSelected = currency;
+        }
 
         return (
             <View style={{ width: '100%', maxHeight: 300 }}>
-                <Text style={styles.modalTitle}>
-                    請選擇{selectionMode === 'category' ? '類別' : '週期'}
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    請選擇{selectionMode === 'category' ? '類別' : selectionMode === 'period' ? '週期' : '幣別'}
                 </Text>
                 <ScrollView style={{ width: '100%' }}>
                     {items.map((item) => (
                         <TouchableOpacity
                             key={item}
-                            style={styles.selectionItem}
+                            style={[styles.selectionItem, { borderBottomColor: colors.borderColor }]}
                             onPress={() => onSelect(item)}
                         >
-                            <Text style={styles.selectionText}>
+                            <Text style={[styles.selectionText, { color: colors.text }]}>
                                 {selectionMode === 'period' ?
                                     (item === 'monthly' ? '每月' : item === 'weekly' ? '每週' : '每年')
                                     : item}
                             </Text>
-                            {(selectionMode === 'category' ? category === item : period === item) && (
-                                <Ionicons name="checkmark" size={20} color="#007AFF" />
+                            {currentSelected === item && (
+                                <Ionicons name="checkmark" size={20} color={colors.tint} />
                             )}
                         </TouchableOpacity>
                     ))}
@@ -188,34 +252,60 @@ export default function BudgetScreen() {
 
     const renderForm = () => (
         <>
-            <Text style={styles.modalTitle}>{editingId ? '修改預算' : '新增預算'}</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{editingId ? '修改預算' : '新增預算'}</Text>
 
-            <Text style={styles.label}>類別</Text>
+            <Text style={[styles.label, { color: colors.text }]}>類別</Text>
             <TouchableOpacity
-                style={[styles.dropdownButton, editingId ? styles.disabledButton : null]}
+                style={[
+                    styles.dropdownButton,
+                    { borderColor: colors.borderColor, backgroundColor: colors.inputBackground },
+                    editingId ? styles.disabledButton : null
+                ]}
                 onPress={() => !editingId && setSelectionMode('category')}
                 disabled={!!editingId}
             >
-                <Text style={styles.dropdownText}>{category || '選擇類別'}</Text>
-                {!editingId && <Ionicons name="chevron-down" size={20} color="#666" />}
+                <Text style={[styles.dropdownText, { color: colors.text }]}>{category || '選擇類別'}</Text>
+                {!editingId && <Ionicons name="chevron-down" size={20} color={colors.subtleText} />}
             </TouchableOpacity>
 
-            <Text style={styles.label}>週期</Text>
+            <Text style={[styles.label, { color: colors.text }]}>週期</Text>
             <TouchableOpacity
-                style={styles.dropdownButton}
+                style={[
+                    styles.dropdownButton,
+                    { borderColor: colors.borderColor, backgroundColor: colors.inputBackground }
+                ]}
                 onPress={() => setSelectionMode('period')}
             >
-                <Text style={styles.dropdownText}>
+                <Text style={[styles.dropdownText, { color: colors.text }]}>
                     {period === 'monthly' ? '每月' : period === 'weekly' ? '每週' : '每年'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#666" />
+                <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
             </TouchableOpacity>
 
-            <Text style={styles.label}>金額</Text>
+            <Text style={[styles.label, { color: colors.text }]}>幣別</Text>
+            <TouchableOpacity
+                style={[
+                    styles.dropdownButton,
+                    { borderColor: colors.borderColor, backgroundColor: colors.inputBackground }
+                ]}
+                onPress={() => setSelectionMode('currency')}
+            >
+                <Text style={[styles.dropdownText, { color: colors.text }]}>{currency}</Text>
+                <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { color: colors.text }]}>金額</Text>
             <TextInput
-                style={styles.input}
+                style={[
+                    styles.input,
+                    {
+                        borderColor: colors.borderColor,
+                        backgroundColor: colors.inputBackground,
+                        color: colors.text
+                    }
+                ]}
                 placeholder="金額"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.subtleText}
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="numeric"
@@ -225,7 +315,7 @@ export default function BudgetScreen() {
                 <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={closeModal}>
                     <Text style={styles.buttonText}>取消</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleSaveBudget}>
+                <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF' }]} onPress={handleSaveBudget}>
                     <Text style={styles.buttonText}>儲存</Text>
                 </TouchableOpacity>
             </View>
@@ -233,18 +323,19 @@ export default function BudgetScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>預算管理</Text>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { backgroundColor: colors.card }]}>
+                <Text style={[styles.title, { color: colors.text }]}>預算管理</Text>
                 <TouchableOpacity onPress={() => {
                     setEditingId(null);
                     setCategory(availableCategories.length > 0 ? availableCategories[0] : '');
                     setAmount('');
                     setPeriod('monthly');
+                    setCurrency('TWD');
                     setSelectionMode('none');
                     setModalVisible(true);
                 }}>
-                    <Ionicons name="add-circle-outline" size={30} color="#007AFF" />
+                    <Ionicons name="add-circle-outline" size={30} color={colors.tint} />
                 </TouchableOpacity>
             </View>
 
@@ -253,13 +344,13 @@ export default function BudgetScreen() {
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.listContent}
-                ListEmptyComponent={<Text style={styles.emptyText}>尚無預算設定</Text>}
+                ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.subtleText }]}>尚無預算設定</Text>}
             />
 
             <Modal visible={isModalVisible} animationType="slide" transparent={true}>
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.centeredView}>
-                        <View style={styles.modalView}>
+                        <View style={[styles.modalView, { backgroundColor: colors.card }]}>
                             {selectionMode === 'none' ? renderForm() : renderSelectionList()}
                         </View>
                     </View>
@@ -270,48 +361,45 @@ export default function BudgetScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
     title: { fontSize: 28, fontWeight: 'bold' },
     listContent: { padding: 20 },
-    card: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+    card: { borderRadius: 12, padding: 15, marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     categoryText: { fontSize: 18, fontWeight: '600' },
-    amountText: { fontSize: 16, color: '#666' },
-    periodText: { fontSize: 14, color: '#999', marginBottom: 10 },
-    progressBarContainer: { height: 10, backgroundColor: '#E5E5EA', borderRadius: 5, overflow: 'hidden', marginBottom: 5 },
-    progressBar: { height: '100%', backgroundColor: '#34C759' },
-    progressText: { fontSize: 12, color: '#666' },
-    emptyText: { textAlign: 'center', marginTop: 50, color: '#999', fontSize: 16 },
+    amountText: { fontSize: 16 },
+    periodText: { fontSize: 14, marginBottom: 10 },
+    progressBarContainer: { height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 5 },
+    progressBar: { height: '100%' },
+    progressText: { fontSize: 12 },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { width: '80%', backgroundColor: 'white', borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+    modalView: { width: '80%', borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
     modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
-    label: { alignSelf: 'flex-start', marginBottom: 5, color: '#333', fontWeight: '500' },
-    input: { width: '100%', padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 15 },
+    label: { alignSelf: 'flex-start', marginBottom: 5, fontWeight: '500' },
+    input: { width: '100%', padding: 10, borderWidth: 1, borderRadius: 8, marginBottom: 15 },
     dropdownButton: {
         width: '100%',
         padding: 12,
         borderWidth: 1,
-        borderColor: '#ddd',
         borderRadius: 8,
         marginBottom: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center'
     },
-    disabledButton: { backgroundColor: '#f0f0f0' },
-    dropdownText: { fontSize: 16, color: '#333' },
+    disabledButton: { opacity: 0.6 },
+    dropdownText: { fontSize: 16 },
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
     button: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
     fullWidthButton: { width: '100%', padding: 10, borderRadius: 8, alignItems: 'center' },
     cancelButton: { backgroundColor: '#FF3B30' },
-    confirmButton: { backgroundColor: '#007AFF' },
     buttonText: { color: 'white', fontWeight: 'bold' },
     selectionItem: {
         width: '100%',
         padding: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center'

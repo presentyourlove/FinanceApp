@@ -65,25 +65,51 @@ export const initDatabase = async () => {
 
     // 建立預算表 (Budgets)
     // 新增 period 欄位: 'monthly', 'weekly', 'yearly'
+    // 新增 currency 欄位
     runSqlSync(`
       CREATE TABLE IF NOT EXISTS budgets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category TEXT NOT NULL,
         amount REAL NOT NULL,
-        period TEXT DEFAULT 'monthly'
+        period TEXT DEFAULT 'monthly',
+        currency TEXT DEFAULT 'TWD'
       );
     `);
 
     // 建立存錢目標表 (Goals)
+    // 新增 currency 欄位
     runSqlSync(`
       CREATE TABLE IF NOT EXISTS goals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         targetAmount REAL NOT NULL,
         currentAmount REAL DEFAULT 0,
-        deadline TEXT
+        deadline TEXT,
+        currency TEXT DEFAULT 'TWD'
       );
     `);
+
+    // --- Migration: Add currency column if missing ---
+    try {
+      const budgetCols = getRowsSync("PRAGMA table_info(budgets);") as any[];
+      if (!budgetCols.some(col => col.name === 'currency')) {
+        runSqlSync("ALTER TABLE budgets ADD COLUMN currency TEXT DEFAULT 'TWD';");
+        console.log("Added currency column to budgets table.");
+      }
+    } catch (e) {
+      console.error("Error migrating budgets table:", e);
+    }
+
+    try {
+      const goalCols = getRowsSync("PRAGMA table_info(goals);") as any[];
+      if (!goalCols.some(col => col.name === 'currency')) {
+        runSqlSync("ALTER TABLE goals ADD COLUMN currency TEXT DEFAULT 'TWD';");
+        console.log("Added currency column to goals table.");
+      }
+    } catch (e) {
+      console.error("Error migrating goals table:", e);
+    }
+    // -------------------------------------------------
 
     // 檢查是否需要插入預設資料
     const resAccounts = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`) as any[];
@@ -112,8 +138,8 @@ export const initDatabase = async () => {
     if (countBudgets === 0) {
       console.log("No initial budgets found. Inserting default data...");
       runSqlSync(
-        `INSERT INTO budgets (category, amount, period) VALUES (?, ?, ?);`,
-        ['餐飲', 6000, 'monthly']
+        `INSERT INTO budgets (category, amount, period, currency) VALUES (?, ?, ?, ?);`,
+        ['餐飲', 6000, 'monthly', 'TWD']
       );
       console.log("Default budget inserted.");
     }
@@ -125,8 +151,8 @@ export const initDatabase = async () => {
     if (countGoals === 0) {
       console.log("No initial goals found. Inserting default data...");
       runSqlSync(
-        `INSERT INTO goals (name, targetAmount, currentAmount, deadline) VALUES (?, ?, ?, ?);`,
-        ['新手機', 30000, 5000, '2025-12-31']
+        `INSERT INTO goals (name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, ?, ?, ?);`,
+        ['新手機', 30000, 5000, '2025-12-31', 'TWD']
       );
       console.log("Default goal inserted.");
     }
@@ -164,6 +190,7 @@ export interface Budget {
   category: string;
   amount: number;
   period: string;
+  currency: string;
 }
 
 export interface Goal {
@@ -172,6 +199,7 @@ export interface Goal {
   targetAmount: number;
   currentAmount: number;
   deadline?: string;
+  currency: string;
 }
 
 
@@ -334,6 +362,50 @@ export const getTransactionsByAccountDB = async (accountId: number): Promise<Tra
 };
 
 /**
+ * 取得包含帳戶資訊的交易記錄 (支援日期範圍過濾)
+ * 優化：使用 JOIN 一次取得幣別資訊，並支援 SQL 層級的日期過濾
+ */
+export const getTransactionsWithAccount = async (startDate?: string, endDate?: string): Promise<(Transaction & { accountCurrency: string })[]> => {
+  let sql = `
+    SELECT t.*, a.currency as accountCurrency 
+    FROM transactions t 
+    JOIN accounts a ON t.accountId = a.id 
+  `;
+
+  const params: any[] = [];
+  const conditions: string[] = [];
+
+  if (startDate) {
+    conditions.push(`date(t.date) >= date(?)`);
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    conditions.push(`date(t.date) <= date(?)`);
+    params.push(endDate);
+  }
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += ` ORDER BY t.date DESC;`;
+
+  const rows = getRowsSync(sql, params) as any[];
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    amount: row.amount,
+    type: row.type as Transaction['type'],
+    date: row.date,
+    description: row.description,
+    accountId: row.accountId,
+    targetAccountId: row.targetAccountId || undefined,
+    accountCurrency: row.accountCurrency || 'TWD',
+  }));
+};
+
+/**
  * 新增一個帳本
  */
 export const addAccountDB = async (name: string, initialBalance: number, currency: string = 'TWD') => {
@@ -375,19 +447,20 @@ export const getBudgets = async (): Promise<Budget[]> => {
     category: row.category,
     amount: row.amount,
     period: row.period,
+    currency: row.currency || 'TWD',
   }));
 };
 
-export const addBudget = async (category: string, amount: number, period: string = 'monthly') => {
+export const addBudget = async (category: string, amount: number, period: string = 'monthly', currency: string = 'TWD') => {
   const res = runSqlSync(
-    `INSERT INTO budgets (category, amount, period) VALUES (?, ?, ?);`,
-    [category, amount, period]
+    `INSERT INTO budgets (category, amount, period, currency) VALUES (?, ?, ?, ?);`,
+    [category, amount, period, currency]
   );
   return res && res.lastInsertRowId;
 };
 
-export const updateBudget = async (id: number, category: string, amount: number, period: string) => {
-  runSqlSync(`UPDATE budgets SET category = ?, amount = ?, period = ? WHERE id = ?;`, [category, amount, period, id]);
+export const updateBudget = async (id: number, category: string, amount: number, period: string, currency: string) => {
+  runSqlSync(`UPDATE budgets SET category = ?, amount = ?, period = ?, currency = ? WHERE id = ?;`, [category, amount, period, currency, id]);
 };
 
 export const deleteBudget = async (id: number) => {
@@ -404,13 +477,14 @@ export const getGoals = async (): Promise<Goal[]> => {
     targetAmount: row.targetAmount,
     currentAmount: row.currentAmount,
     deadline: row.deadline,
+    currency: row.currency || 'TWD',
   }));
 };
 
-export const addGoal = async (name: string, targetAmount: number, deadline?: string) => {
+export const addGoal = async (name: string, targetAmount: number, deadline: string | undefined = undefined, currency: string = 'TWD') => {
   const res = runSqlSync(
-    `INSERT INTO goals (name, targetAmount, currentAmount, deadline) VALUES (?, ?, 0, ?);`,
-    [name, targetAmount, deadline || null]
+    `INSERT INTO goals (name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, 0, ?, ?);`,
+    [name, targetAmount, deadline || null, currency]
   );
   return res && res.lastInsertRowId;
 };
@@ -419,10 +493,10 @@ export const updateGoalAmount = async (id: number, currentAmount: number) => {
   runSqlSync(`UPDATE goals SET currentAmount = ? WHERE id = ?;`, [currentAmount, id]);
 };
 
-export const updateGoal = async (id: number, name: string, targetAmount: number, deadline?: string) => {
+export const updateGoal = async (id: number, name: string, targetAmount: number, deadline?: string, currency: string = 'TWD') => {
   runSqlSync(
-    `UPDATE goals SET name = ?, targetAmount = ?, deadline = ? WHERE id = ?;`,
-    [name, targetAmount, deadline || null, id]
+    `UPDATE goals SET name = ?, targetAmount = ?, deadline = ?, currency = ? WHERE id = ?;`,
+    [name, targetAmount, deadline || null, currency, id]
   );
 };
 
@@ -479,6 +553,7 @@ export const dbOperations = {
   performTransfer,
   updateTransfer,
   getTransactionsByAccountDB,
+  getTransactionsWithAccount,
   addAccountDB,
   deleteAccountDB,
   // Budgets

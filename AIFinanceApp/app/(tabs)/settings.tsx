@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    TextInput,
+    TouchableOpacity,
+    Alert,
+    ScrollView,
+    useWindowDimensions,
+    NativeSyntheticEvent,
+    NativeScrollEvent
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -15,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/context/ThemeContext';
 import { dbOperations } from '@/app/services/database';
 import * as CategoryStorage from '@/app/utils/categoryStorage';
+import * as CurrencyStorage from '@/app/utils/currencyStorage';
 import { ThemeType } from '@/app/utils/themeStorage';
 
 
@@ -28,15 +32,16 @@ interface Account {
 
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
     const { colors, theme, setTheme } = useTheme();
     const styles = getStyles(colors);
 
     const [categories, setCategories] = useState<CategoryStorage.Categories>({ expense: [], income: [] });
     const [accounts, setAccounts] = useState<Account[]>([]);
-    
+
     const [newCat, setNewCat] = useState('');
     const [catType, setCatType] = useState<'income' | 'expense'>('expense');
-    const [manageMode, setManageMode] = useState<'category' | 'account' | 'theme'>('category');
+    const [manageMode, setManageMode] = useState<'category' | 'account' | 'currency' | 'theme'>('category');
 
     // 新增帳本狀態
     const [newAccName, setNewAccName] = useState('');
@@ -44,12 +49,30 @@ export default function SettingsScreen() {
     const [newAccCurrency, setNewAccCurrency] = useState('TWD');
     const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
 
+    // 匯率管理狀態
+    const [currencySettings, setCurrencySettings] = useState<CurrencyStorage.CurrencySettings>({
+        mainCurrency: 'TWD',
+        exchangeRates: {}
+    });
+    const [tempRates, setTempRates] = useState<{ [key: string]: string }>({});
+
+    const scrollViewRef = useRef<ScrollView>(null);
+
     // 載入資料
     const loadData = async () => {
         const loadedAccounts = await dbOperations.getAccounts();
         setAccounts(loadedAccounts);
         const loadedCategories = await CategoryStorage.loadCategories();
         setCategories(loadedCategories);
+        const loadedCurrencySettings = await CurrencyStorage.loadCurrencySettings();
+        setCurrencySettings(loadedCurrencySettings);
+
+        // Initialize temp rates for editing
+        const initialTempRates: { [key: string]: string } = {};
+        Object.entries(loadedCurrencySettings.exchangeRates).forEach(([curr, rate]) => {
+            initialTempRates[curr] = rate.toString();
+        });
+        setTempRates(initialTempRates);
     };
 
     // 初始載入
@@ -81,118 +104,249 @@ export default function SettingsScreen() {
         const updatedCategories = await CategoryStorage.moveCategory(type, index, direction);
         setCategories(updatedCategories);
     };
-    
+
     const handleAddAccount = async (name: string, balance: number, currency: string) => {
         if (!name) {
-          Alert.alert("名稱無效", "請輸入新的帳本名稱。");
-          return;
+            Alert.alert("名稱無效", "請輸入新的帳本名稱。");
+            return;
         }
         if (isNaN(balance)) {
-          Alert.alert("金額無效", "請輸入有效的初始資金。");
-          return;
+            Alert.alert("金額無效", "請輸入有效的初始資金。");
+            return;
         }
-    
+
         try {
-          await dbOperations.addAccountDB(name, balance, currency);
-          const loadedAccounts = await dbOperations.getAccounts();
-          setAccounts(loadedAccounts);
-          setNewAccName('');
-          setNewAccBalance('');
-          setNewAccCurrency('TWD');
-          Alert.alert("成功", `帳本「${name}」已新增。`);
+            await dbOperations.addAccountDB(name, balance, currency);
+            const loadedAccounts = await dbOperations.getAccounts();
+            setAccounts(loadedAccounts);
+            setNewAccName('');
+            setNewAccBalance('');
+            setNewAccCurrency('TWD');
+            Alert.alert("成功", `帳本「${name}」已新增。`);
         } catch {
-          Alert.alert("新增失敗", "新增帳本時發生錯誤。");
+            Alert.alert("新增失敗", "新增帳本時發生錯誤。");
         }
     };
 
     const handleDeleteAccount = async (id: number) => {
         if (accounts.length <= 1) {
-          Alert.alert("無法刪除", "至少需要保留一個帳本。");
-          return;
+            Alert.alert("無法刪除", "至少需要保留一個帳本。");
+            return;
         }
-    
+
         try {
-          await dbOperations.deleteAccountDB(id);
-          const loadedAccounts = await dbOperations.getAccounts();
-          setAccounts(loadedAccounts);
-          Alert.alert("成功", "帳本已刪除。");
+            await dbOperations.deleteAccountDB(id);
+            const loadedAccounts = await dbOperations.getAccounts();
+            setAccounts(loadedAccounts);
+            Alert.alert("成功", "帳本已刪除。");
         } catch (error: any) {
-          if (error.message.includes("transactions")) {
-            Alert.alert("無法刪除", "此帳本仍有交易記錄，請先清除相關交易。");
-          } else {
-            Alert.alert("刪除失敗", "刪除帳本時發生錯誤。");
-          }
+            if (error.message.includes("transactions")) {
+                Alert.alert("無法刪除", "此帳本仍有交易記錄，請先清除相關交易。");
+            } else {
+                Alert.alert("刪除失敗", "刪除帳本時發生錯誤。");
+            }
         }
     };
-    
+
     const handleSetTheme = (selectedTheme: ThemeType) => {
         setTheme(selectedTheme);
+    };
+
+    const handleTabPress = (mode: 'category' | 'account' | 'currency' | 'theme') => {
+        setManageMode(mode);
+        let offset = 0;
+        if (mode === 'account') offset = width;
+        if (mode === 'currency') offset = width * 2;
+        if (mode === 'theme') offset = width * 3;
+
+        scrollViewRef.current?.scrollTo({ x: offset, animated: true });
+    };
+
+    const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const offsetX = event.nativeEvent.contentOffset.x;
+        const index = Math.round(offsetX / width);
+
+        if (index === 0 && manageMode !== 'category') setManageMode('category');
+        else if (index === 1 && manageMode !== 'account') setManageMode('account');
+        else if (index === 2 && manageMode !== 'currency') setManageMode('currency');
+        else if (index === 3 && manageMode !== 'theme') setManageMode('theme');
+    };
+
+    // Currency Management Functions
+    const handleMainCurrencyChange = (newMain: string) => {
+        const pivotRateStr = tempRates[newMain];
+        const pivotRate = parseFloat(pivotRateStr);
+
+        if (isNaN(pivotRate) || pivotRate <= 0) {
+            Alert.alert("錯誤", "新主幣別的匯率無效，無法切換。請先設定有效的匯率。");
+            return;
+        }
+
+        const newSettings = { ...currencySettings, mainCurrency: newMain };
+
+        // Recalculate all rates relative to the new main currency
+        // Formula: NewRate(C) = OldRate(C) / OldRate(NewMain)
+        const newTempRates: { [key: string]: string } = {};
+
+        Object.keys(tempRates).forEach(curr => {
+            const oldRate = parseFloat(tempRates[curr]);
+            if (!isNaN(oldRate)) {
+                // Calculate new rate
+                let newRate = oldRate / pivotRate;
+
+                // Format: avoid scientific notation for small numbers if possible, but keep precision
+                // For display, maybe limit decimals, but for storage keep precision?
+                // Let's keep up to 6 decimal places for precision
+                newTempRates[curr] = parseFloat(newRate.toFixed(6)).toString();
+            } else {
+                newTempRates[curr] = tempRates[curr]; // Keep invalid input as is? Or reset?
+            }
+        });
+
+        // Ensure new main currency is exactly 1
+        newTempRates[newMain] = '1';
+
+        setCurrencySettings(newSettings);
+        setTempRates(newTempRates);
+    };
+
+    const handleRateChange = (currency: string, rate: string) => {
+        setTempRates(prev => ({ ...prev, [currency]: rate }));
+    };
+
+    const saveCurrencySettings = async () => {
+        const newRates: { [key: string]: number } = {};
+        let isValid = true;
+
+        Object.entries(tempRates).forEach(([curr, rateStr]) => {
+            const rate = parseFloat(rateStr);
+            if (isNaN(rate) || rate <= 0) {
+                isValid = false;
+            }
+            newRates[curr] = rate;
+        });
+
+        if (!isValid) {
+            Alert.alert("錯誤", "請輸入有效的匯率數值（必須大於 0）。");
+            return;
+        }
+
+        // Ensure main currency rate is 1
+        newRates[currencySettings.mainCurrency] = 1;
+
+        const newSettings = {
+            mainCurrency: currencySettings.mainCurrency,
+            exchangeRates: newRates
+        };
+
+        await CurrencyStorage.saveCurrencySettings(newSettings);
+        setCurrencySettings(newSettings);
+        // Update temp rates to ensure consistency
+        const updatedTempRates: { [key: string]: string } = {};
+        Object.entries(newRates).forEach(([curr, rate]) => {
+            updatedTempRates[curr] = rate.toString();
+        });
+        setTempRates(updatedTempRates);
+
+        Alert.alert("成功", "匯率設定已儲存。");
+    };
+
+    const allCurrencies = ['TWD', 'USD', 'JPY', 'CNY', 'HKD', 'MOP', 'GBP', 'KRW'];
+
+    const getCurrencyLabel = (code: string) => {
+        const labels: { [key: string]: string } = {
+            'TWD': 'TWD - 新台幣',
+            'USD': 'USD - 美金',
+            'JPY': 'JPY - 日圓',
+            'CNY': 'CNY - 人民幣',
+            'HKD': 'HKD - 港幣',
+            'MOP': 'MOP - 澳門幣',
+            'GBP': 'GBP - 英鎊',
+            'KRW': 'KRW - 韓元',
+        };
+        return labels[code] || code;
     };
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <Text style={styles.title}>設定</Text>
-            
+
             <View style={styles.tabsContainer}>
-                <TouchableOpacity onPress={() => setManageMode('category')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: colors.accent }]}>
-                    <Text style={[styles.tabButtonText, { color: manageMode === 'category' ? colors.accent : colors.subtleText }]}>分類管理</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setManageMode('account')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: colors.accent }]}>
-                    <Text style={[styles.tabButtonText, { color: manageMode === 'account' ? colors.accent : colors.subtleText }]}>帳本管理</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setManageMode('theme')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'theme' ? 2 : 0, borderColor: colors.accent }]}>
-                    <Text style={[styles.tabButtonText, { color: manageMode === 'theme' ? colors.accent : colors.subtleText }]}>主題管理</Text>
-                </TouchableOpacity>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <TouchableOpacity onPress={() => handleTabPress('category')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: colors.accent }]}>
+                        <Text style={[styles.tabButtonText, { color: manageMode === 'category' ? colors.accent : colors.subtleText }]}>分類管理</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleTabPress('account')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: colors.accent }]}>
+                        <Text style={[styles.tabButtonText, { color: manageMode === 'account' ? colors.accent : colors.subtleText }]}>帳本管理</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleTabPress('currency')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'currency' ? 2 : 0, borderColor: colors.accent }]}>
+                        <Text style={[styles.tabButtonText, { color: manageMode === 'currency' ? colors.accent : colors.subtleText }]}>匯率管理</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleTabPress('theme')} style={[styles.tabButton, { borderBottomWidth: manageMode === 'theme' ? 2 : 0, borderColor: colors.accent }]}>
+                        <Text style={[styles.tabButtonText, { color: manageMode === 'theme' ? colors.accent : colors.subtleText }]}>主題管理</Text>
+                    </TouchableOpacity>
+                </ScrollView>
             </View>
 
-            <ScrollView style={styles.scrollView}>
-                {manageMode === 'category' && (
-                    <>
+            <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={handleScroll}
+                scrollEventThrottle={16}
+                style={{ flex: 1 }}
+            >
+                {/* Category Management Page */}
+                <View style={{ width, flex: 1 }}>
+                    <ScrollView style={{ flex: 1 }}>
                         <View style={{ paddingHorizontal: 15 }}>
                             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-                            <TouchableOpacity onPress={() => setCatType('expense')} style={[styles.bigButton, { backgroundColor: catType === 'expense' ? '#FF3B30' : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== 'expense' ? 1 : 0, borderColor: colors.borderColor }]}>
-                                <Text style={[styles.buttonText, {color: catType === 'expense' ? '#fff' : colors.text}]}>支出</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setCatType('income')} style={[styles.bigButton, { backgroundColor: catType === 'income' ? '#4CD964' : colors.card, flex: 1, borderWidth: catType !== 'income' ? 1 : 0, borderColor: colors.borderColor }]}>
-                                <Text style={[styles.buttonText, {color: catType === 'income' ? '#fff' : colors.text}]}>收入</Text>
-                            </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setCatType('expense')} style={[styles.bigButton, { backgroundColor: catType === 'expense' ? '#FF3B30' : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== 'expense' ? 1 : 0, borderColor: colors.borderColor }]}>
+                                    <Text style={[styles.buttonText, { color: catType === 'expense' ? '#fff' : colors.text }]}>支出</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setCatType('income')} style={[styles.bigButton, { backgroundColor: catType === 'income' ? '#4CD964' : colors.card, flex: 1, borderWidth: catType !== 'income' ? 1 : 0, borderColor: colors.borderColor }]}>
+                                    <Text style={[styles.buttonText, { color: catType === 'income' ? '#fff' : colors.text }]}>收入</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
-                        
+
                         <Text style={styles.subtitle}>新增{catType === 'income' ? '收入' : '支出'}分類</Text>
                         <View style={styles.card}>
                             <View style={{ flexDirection: 'row' }}>
-                            <TextInput
-                                style={[styles.input, { flex: 1, marginRight: 10 }]}
-                                placeholder="新分類名稱"
-                                placeholderTextColor={colors.subtleText}
-                                value={newCat}
-                                onChangeText={setNewCat}
-                            />
-                            <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={() => handleAddCategory(catType, newCat)}>
-                                <Text style={styles.buttonText}>新增</Text>
-                            </TouchableOpacity>
+                                <TextInput
+                                    style={[styles.input, { flex: 1, marginRight: 10 }]}
+                                    placeholder="新分類名稱"
+                                    placeholderTextColor={colors.subtleText}
+                                    value={newCat}
+                                    onChangeText={setNewCat}
+                                />
+                                <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={() => handleAddCategory(catType, newCat)}>
+                                    <Text style={styles.buttonText}>新增</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
 
                         <Text style={styles.subtitle}>現有{catType === 'income' ? '收入' : '支出'}分類</Text>
                         <View style={styles.card}>
                             {categories[catType]?.map((cat: string, index: number) => (
-                            <View key={index} style={styles.settingListItem}>
-                                <Text style={styles.settingItemText}>{cat}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <TouchableOpacity onPress={() => moveCategory(catType, index, 'up')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-up" size={20} color={colors.subtleText} /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => moveCategory(catType, index, 'down')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-down" size={20} color={colors.subtleText} /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDeleteCategory(catType, cat)} style={{ paddingHorizontal: 5 }}><Ionicons name="trash" size={20} color="#FF3B30" /></TouchableOpacity>
+                                <View key={index} style={styles.settingListItem}>
+                                    <Text style={styles.settingItemText}>{cat}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <TouchableOpacity onPress={() => moveCategory(catType, index, 'up')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-up" size={20} color={colors.subtleText} /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => moveCategory(catType, index, 'down')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-down" size={20} color={colors.subtleText} /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDeleteCategory(catType, cat)} style={{ paddingHorizontal: 5 }}><Ionicons name="trash" size={20} color="#FF3B30" /></TouchableOpacity>
+                                    </View>
                                 </View>
-                            </View>
                             ))}
                         </View>
-                    </>
-                )}
-                
-                {manageMode === 'account' && (
-                    <>
+                        <View style={{ height: 50 }} />
+                    </ScrollView>
+                </View>
+
+                {/* Account Management Page */}
+                <View style={{ width, flex: 1 }}>
+                    <ScrollView style={{ flex: 1 }}>
                         <Text style={styles.subtitle}>新增帳本</Text>
                         <View style={styles.card}>
                             <TextInput
@@ -203,14 +357,14 @@ export default function SettingsScreen() {
                                 onChangeText={setNewAccName}
                             />
                             <TextInput
-                                style={[styles.input, {marginTop: 10}]}
+                                style={[styles.input, { marginTop: 10 }]}
                                 placeholder="初始餘額"
                                 placeholderTextColor={colors.subtleText}
                                 keyboardType="numeric"
                                 value={newAccBalance}
                                 onChangeText={setNewAccBalance}
                             />
-                            
+
                             <View style={{ width: '100%', marginTop: 10, zIndex: 1000 }}>
                                 <TouchableOpacity
                                     style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
@@ -223,7 +377,7 @@ export default function SettingsScreen() {
                                 {isCurrencyDropdownOpen && (
                                     <View style={styles.dropdown}>
                                         <ScrollView nestedScrollEnabled={true}>
-                                            {['TWD', 'USD', 'JPY', 'CNY', 'HKD', 'MOP', 'GBP', 'KRW'].map((curr) => (
+                                            {allCurrencies.map((curr) => (
                                                 <TouchableOpacity
                                                     key={curr}
                                                     style={styles.dropdownItem}
@@ -265,155 +419,118 @@ export default function SettingsScreen() {
                                 </View>
                             ))}
                         </View>
-                    </>
-                )}
+                        <View style={{ height: 50 }} />
+                    </ScrollView>
+                </View>
 
-                {manageMode === 'theme' && (
-                    <>
-                        <Text style={styles.subtitle}>選擇您的 App 主題</Text>
+                {/* Currency Management Page */}
+                <View style={{ width, flex: 1 }}>
+                    <ScrollView style={{ flex: 1 }}>
+                        <Text style={styles.subtitle}>匯率設定</Text>
+                        <Text style={[styles.description, { color: colors.subtleText }]}>
+                            請選擇主幣別，並設定其他幣別相對於主幣別的匯率。
+                            {"\n"}(例如：主幣別為 TWD，USD 匯率設為 32.5)
+                        </Text>
+
                         <View style={styles.card}>
-                            <TouchableOpacity style={styles.themeOption} onPress={() => handleSetTheme('Default')}>
-                                <Text style={styles.settingItemText}>預設</Text>
-                                {theme === 'Default' && <Ionicons name="checkmark-circle" size={24} color={colors.accent} />}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.themeOption} onPress={() => handleSetTheme('Dark')}>
-                                <Text style={styles.settingItemText}>暗黑</Text>
-                                {theme === 'Dark' && <Ionicons name="checkmark-circle" size={24} color={colors.accent} />}
+                            <View style={styles.currencyHeader}>
+                                <Text style={[styles.headerText, { color: colors.text, flex: 2 }]}>幣別</Text>
+                                <Text style={[styles.headerText, { color: colors.text, flex: 1, textAlign: 'center' }]}>主幣別</Text>
+                                <Text style={[styles.headerText, { color: colors.text, flex: 1.5, textAlign: 'right' }]}>匯率</Text>
+                            </View>
+
+                            {allCurrencies.map((curr) => {
+                                const isMain = currencySettings.mainCurrency === curr;
+                                return (
+                                    <View key={curr} style={styles.currencyRow}>
+                                        <View style={{ flex: 2 }}>
+                                            <Text style={[styles.currencyName, { color: colors.text }]}>{getCurrencyLabel(curr)}</Text>
+                                        </View>
+
+                                        <TouchableOpacity
+                                            style={{ flex: 1, alignItems: 'center' }}
+                                            onPress={() => handleMainCurrencyChange(curr)}
+                                        >
+                                            <Ionicons
+                                                name={isMain ? "radio-button-on" : "radio-button-off"}
+                                                size={24}
+                                                color={isMain ? colors.tint : colors.subtleText}
+                                            />
+                                        </TouchableOpacity>
+
+                                        <View style={{ flex: 1.5 }}>
+                                            <TextInput
+                                                style={[
+                                                    styles.rateInput,
+                                                    {
+                                                        color: isMain ? colors.subtleText : colors.text,
+                                                        backgroundColor: isMain ? colors.background : colors.inputBackground,
+                                                        borderColor: colors.borderColor
+                                                    }
+                                                ]}
+                                                value={tempRates[curr] || ''}
+                                                onChangeText={(text) => handleRateChange(curr, text)}
+                                                keyboardType="numeric"
+                                                editable={!isMain}
+                                            />
+                                        </View>
+                                    </View>
+                                );
+                            })}
+
+                            <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent, marginTop: 20 }]} onPress={saveCurrencySettings}>
+                                <Text style={styles.buttonText}>儲存設定</Text>
                             </TouchableOpacity>
                         </View>
-                    </>
-                )}
+                        <View style={{ height: 50 }} />
+                    </ScrollView>
+                </View>
+
+                {/* Theme Management Page */}
+                <View style={{ width, flex: 1 }}>
+                    <ScrollView style={{ flex: 1 }}>
+                        <Text style={styles.subtitle}>主題設定</Text>
+                        <View style={styles.card}>
+                            <TouchableOpacity style={[styles.themeOption, { borderBottomColor: colors.borderColor }]} onPress={() => handleSetTheme('Default')}>
+                                <Text style={[styles.themeText, { color: colors.text }]}>淺色模式</Text>
+                                {theme === 'Default' && <Ionicons name="checkmark" size={24} color={colors.tint} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.themeOption} onPress={() => handleSetTheme('Dark')}>
+                                <Text style={[styles.themeText, { color: colors.text }]}>深色模式</Text>
+                                {theme === 'Dark' && <Ionicons name="checkmark" size={24} color={colors.tint} />}
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </View>
+
             </ScrollView>
         </View>
     );
 }
 
-function getCurrencyLabel(currency: string) {
-    switch (currency) {
-        case 'TWD': return 'TWD - 新台幣';
-        case 'USD': return 'USD - 美金';
-        case 'JPY': return 'JPY - 日圓';
-        case 'CNY': return 'CNY - 人民幣';
-        case 'HKD': return 'HKD - 港幣';
-        case 'MOP': return 'MOP - 澳門幣';
-        case 'GBP': return 'GBP - 英鎊';
-        case 'KRW': return 'KRW - 韓元';
-        default: return currency;
-    }
-}
-
 const getStyles = (colors: any) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: colors.text,
-        textAlign: 'center',
-        marginVertical: 15,
-    },
-    subtitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: colors.text,
-        marginTop: 20,
-        marginBottom: 10,
-        paddingHorizontal: 15,
-    },
-    tabsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderColor,
-        paddingHorizontal: 15,
-    },
-    tabButton: {
-        padding: 10,
-        marginHorizontal: 10,
-    },
-    tabButtonText: {
-        fontSize: 16,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    card: {
-        backgroundColor: colors.card,
-        borderRadius: 10,
-        padding: 15,
-        marginHorizontal: 15,
-        marginBottom: 15,
-    },
-    input: {
-        height: 45,
-        borderColor: colors.borderColor,
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        fontSize: 16,
-        backgroundColor: colors.inputBackground,
-        color: colors.text,
-    },
-    inputText: {
-        color: colors.text,
-        fontSize: 16,
-    },
-    button: {
-        borderRadius: 10,
-        padding: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: 45,
-    },
-    bigButton: {
-        borderRadius: 10,
-        padding: 10,
-        elevation: 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: 45,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    settingListItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderColor,
-    },
-    settingItemText: {
-        fontSize: 16,
-        color: colors.text,
-    },
-    dropdown: {
-        position: 'absolute',
-        top: 50,
-        left: 0,
-        right: 0,
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.borderColor,
-        borderRadius: 8,
-        elevation: 5,
-        maxHeight: 200,
-    },
-    dropdownItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderColor,
-    },
-    themeOption: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 15,
-    }
+    container: { flex: 1, backgroundColor: colors.background },
+    title: { fontSize: 34, fontWeight: 'bold', paddingHorizontal: 20, marginBottom: 10, color: colors.text },
+    tabsContainer: { marginBottom: 10 },
+    tabButton: { paddingHorizontal: 20, paddingVertical: 10 },
+    tabButtonText: { fontSize: 16, fontWeight: '600' },
+    subtitle: { fontSize: 20, fontWeight: 'bold', paddingHorizontal: 20, marginTop: 20, marginBottom: 10, color: colors.text },
+    description: { fontSize: 14, paddingHorizontal: 20, marginBottom: 15 },
+    card: { marginHorizontal: 20, padding: 15, borderRadius: 12, backgroundColor: colors.card, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+    input: { padding: 12, borderRadius: 8, backgroundColor: colors.inputBackground, color: colors.text },
+    inputText: { fontSize: 16, color: colors.text },
+    button: { padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    bigButton: { padding: 15, borderRadius: 12, alignItems: 'center' },
+    buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    settingListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    settingItemText: { fontSize: 16, color: colors.text },
+    themeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: 'transparent' },
+    themeText: { fontSize: 16 },
+    dropdown: { position: 'absolute', top: 50, left: 0, right: 0, backgroundColor: colors.card, borderRadius: 8, borderWidth: 1, borderColor: colors.borderColor, maxHeight: 200, zIndex: 1000, elevation: 5 },
+    dropdownItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    currencyHeader: { flexDirection: 'row', marginBottom: 10, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    headerText: { fontWeight: 'bold', fontSize: 14 },
+    currencyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    currencyName: { fontSize: 16 },
+    rateInput: { padding: 8, borderRadius: 8, borderWidth: 1, textAlign: 'right' }
 });

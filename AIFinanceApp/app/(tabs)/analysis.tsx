@@ -13,17 +13,18 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
 import { useTheme } from '@/app/context/ThemeContext';
+import * as CurrencyStorage from '@/app/utils/currencyStorage';
 
 type AnalysisPeriod = 'month' | 'year';
 
 const pieChartColors = [
-        '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6', '#FF2D55'
-    ];
-    
-    function hexToRgb(hex: string) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0,0,0';
-    }
+    '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6', '#FF2D55'
+];
+
+function hexToRgb(hex: string) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0,0,0';
+}
 
 export default function AnalysisScreen() {
     const { colors } = useTheme();
@@ -35,6 +36,7 @@ export default function AnalysisScreen() {
     const [topCategories, setTopCategories] = useState<{ name: string; amount: number; color: string; legendFontColor: string; legendFontSize: number; }[]>([]);
     const [advice, setAdvice] = useState<string[]>([]);
     const [period, setPeriod] = useState<AnalysisPeriod>('month');
+    const [mainCurrency, setMainCurrency] = useState('TWD');
 
     const chartConfig = {
         backgroundGradientFromOpacity: 0,
@@ -49,24 +51,45 @@ export default function AnalysisScreen() {
         React.useCallback(() => {
             const loadData = async () => {
                 try {
-                    const accounts = await dbOperations.getAccounts();
+                    const now = new Date();
+                    let startDate, endDate;
+
+                    if (period === 'month') {
+                        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                        startDate = start.toISOString().split('T')[0];
+                        endDate = end.toISOString().split('T')[0];
+                    } else {
+                        const start = new Date(now.getFullYear(), 0, 1);
+                        const end = new Date(now.getFullYear(), 11, 31);
+                        startDate = start.toISOString().split('T')[0];
+                        endDate = end.toISOString().split('T')[0];
+                    }
+
+                    const [currencySettings, transactions] = await Promise.all([
+                        CurrencyStorage.loadCurrencySettings(),
+                        dbOperations.getTransactionsWithAccount(startDate, endDate)
+                    ]);
+
+                    setMainCurrency(currencySettings.mainCurrency);
+                    const rates = currencySettings.exchangeRates;
+
                     let income = 0, expense = 0;
                     const categoryMap = new Map<string, number>();
-                    const now = new Date(), currentYear = now.getFullYear(), currentMonth = now.getMonth();
 
-                    for (const acc of accounts) {
-                        const transactions = await dbOperations.getTransactionsByAccountDB(acc.id);
-                        for (const t of transactions) {
-                            const tDate = new Date(t.date);
-                            if (tDate.getFullYear() !== currentYear || (period === 'month' && tDate.getMonth() !== currentMonth)) continue;
+                    for (const t of transactions) {
+                        // Get account currency rate relative to main currency
+                        const accRate = rates[t.accountCurrency] || 1;
 
-                            if (t.type === 'income') {
-                                income += t.amount;
-                            } else if (t.type === 'expense') {
-                                expense += t.amount;
-                                const cat = t.description?.split(' ')[0] || '其他';
-                                categoryMap.set(cat, (categoryMap.get(cat) || 0) + t.amount);
-                            }
+                        // Convert amount to main currency
+                        const amountInMain = t.amount * accRate;
+
+                        if (t.type === 'income') {
+                            income += amountInMain;
+                        } else if (t.type === 'expense') {
+                            expense += amountInMain;
+                            const cat = t.description?.split(' ')[0] || '其他';
+                            categoryMap.set(cat, (categoryMap.get(cat) || 0) + amountInMain);
                         }
                     }
 
@@ -77,7 +100,7 @@ export default function AnalysisScreen() {
                         .sort((a, b) => b[1] - a[1])
                         .map(([category, amount], index) => ({
                             name: category,
-                            amount,
+                            amount: Math.round(amount), // Round for display
                             color: pieChartColors[index % pieChartColors.length],
                             legendFontColor: colors.subtleText,
                             legendFontSize: 12
@@ -96,17 +119,17 @@ export default function AnalysisScreen() {
                     console.error(error);
                 }
             };
-            
+
             loadData();
         }, [period, colors]) // Reload when period or theme changes
     );
 
 
     return (
-        <View style={[styles.container, {paddingTop: insets.top}]}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>財務分析</Text>
+                    <Text style={styles.title}>財務分析 ({mainCurrency})</Text>
                     <TouchableOpacity style={styles.periodButton} onPress={() => setPeriod(p => p === 'month' ? 'year' : 'month')}>
                         <Ionicons name="calendar-outline" size={20} color={colors.accent} style={{ marginRight: 5 }} />
                         <Text style={styles.periodButtonText}>{period === 'month' ? '切換至年檢視' : '切換至月檢視'}</Text>
@@ -161,7 +184,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    title: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+    title: { fontSize: 24, fontWeight: 'bold', color: colors.text },
     periodButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBackground, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
     periodButtonText: { color: colors.accent, fontWeight: '600' },
     overviewContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
