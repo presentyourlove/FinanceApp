@@ -42,6 +42,14 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="invest"
+        options={{
+          title: '投資',
+          tabBarIcon: ({ color }) => <TabBarIcon name="trending-up-outline" color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
         name="budget"
         options={{
           title: '預算',
