@@ -14,7 +14,7 @@ const defaultSettings: CurrencySettings = {
         'USD': 0.031856,
         'JPY': 4.975311,
         'CNY': 0.225357,
-        'HKD': 0.480073,
+        'HKD': 0.24801,
         'MOP': 0.255819,
         'GBP': 0.024070,
         'KRW': 46.75543
