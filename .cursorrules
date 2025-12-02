@@ -1,4 +1,5 @@
 # User Preferences
 
-1.  **Solution Approach**: When encountering issues or bugs, please provide the solution and specific modification methods (code snippets) in the chat for me to handle. Do not automatically edit the files unless explicitly requested.
-2.  **Language**: Please use Traditional Chinese (繁體中文) for all responses.
+1.  **Error Handling & Permissions**: When generating code or answering questions, if you encounter a problem you cannot handle or an error; or when modifying code, if you find you lack permission to continue fixing a defect or error, please **STOP**. Do not continue generating. Instead, point out the difficulty encountered and provide a solution for me to handle it myself.
+
+2.  **Language**: Please use Traditional Chinese (繁體中文) for ALL responses, including implementation plans, goals, and explanations.
