@@ -8,9 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../context/ThemeContext';
-import { dbOperations, Investment } from '../services/database';
-import { loadCurrencySettings } from '../utils/currencyStorage';
+import { useTheme } from '@/app/context/ThemeContext';
+import { dbOperations, Investment } from '@/app/services/database';
+import { loadCurrencySettings } from '@/app/utils/currencyStorage';
 
 interface Account {
     id: number;
@@ -28,8 +28,8 @@ interface GroupedInvestment extends Investment {
     estimatedInterest?: number;
 }
 
-export default function InvestScreen() {
-    const insets = useSafeAreaInsets();
+export default function InvestView({ style }: { style?: any }) {
+    // const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const styles = getStyles(colors);
 
@@ -301,10 +301,6 @@ export default function InvestScreen() {
         }
     };
 
-
-
-
-
     const handleAddInvestment = async () => {
         if (!name) return Alert.alert('錯誤', '請填寫名稱');
 
@@ -417,8 +413,8 @@ export default function InvestScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={[styles.container, style]}>
+            <View style={[styles.header, { paddingTop: 20 }]}>
                 <Text style={styles.headerTitle}>投資組合</Text>
                 <TouchableOpacity onPress={() => { resetAddForm(); setAddModalVisible(true); }}>
                     <Ionicons name="add-circle" size={32} color={colors.accent} />

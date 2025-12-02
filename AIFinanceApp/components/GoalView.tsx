@@ -12,18 +12,21 @@ import {
     Keyboard,
     Switch,
     Pressable,
-    Platform
+    Platform,
+    ScrollView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dbOperations, Goal } from '../services/database';
+import { dbOperations, Goal } from '@/app/services/database';
 import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/app/context/ThemeContext';
 
-export default function GoalScreen() {
+export default function GoalView({ style }: { style?: any }) {
+    // const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
+    const styles = getStyles(colors);
     const [goals, setGoals] = useState<Goal[]>([]);
     const [isModalVisible, setModalVisible] = useState(false);
 
@@ -304,15 +307,18 @@ export default function GoalScreen() {
         const currencySymbol = item.currency || 'TWD';
 
         return (
-            <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={() => openEditModal(item)}>
+            <TouchableOpacity style={styles.card} onPress={() => openEditModal(item)}>
                 <View style={styles.cardHeader}>
-                    <Text style={[styles.goalName, { color: colors.text }]}>{item.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="flag" size={24} color={colors.tint} style={{ marginRight: 10 }} />
+                        <Text style={styles.goalName}>{item.name}</Text>
+                    </View>
                     <TouchableOpacity onPress={() => handleDeleteGoal(item.id)}>
                         <Ionicons name="trash-outline" size={20} color="#FF3B30" />
                     </TouchableOpacity>
                 </View>
-                <Text style={[styles.amountText, { color: colors.subtleText }]}>目標: {currencySymbol} ${item.targetAmount}</Text>
-                {item.deadline && <Text style={[styles.deadlineText, { color: colors.subtleText }]}>截止日: {item.deadline}</Text>}
+                <Text style={styles.amountText}>目標: {currencySymbol} ${item.targetAmount}</Text>
+                {item.deadline && <Text style={styles.deadlineText}>截止日: {item.deadline}</Text>}
 
                 <View style={[styles.progressBarContainer, { backgroundColor: isDark ? '#333' : '#E5E5EA' }]}>
                     <View style={[styles.progressBar, { width: `${Math.min(progress, 100)}%` }]} />
@@ -417,11 +423,11 @@ export default function GoalScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.card }]}>
-                <Text style={[styles.title, { color: colors.text }]}>存錢目標</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }, style]}>
+            <View style={[styles.header, { paddingTop: 20 }]}>
+                <Text style={styles.headerTitle}>存錢目標</Text>
                 <TouchableOpacity onPress={openAddModal}>
-                    <Ionicons name="add-circle-outline" size={30} color={colors.tint} />
+                    <Ionicons name="add-circle" size={32} color={colors.accent} />
                 </TouchableOpacity>
             </View>
 
@@ -430,26 +436,31 @@ export default function GoalScreen() {
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.listContent}
-                ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.subtleText }]}>尚無存錢目標</Text>}
+                ListEmptyComponent={<Text style={styles.emptyText}>尚無存錢目標</Text>}
             />
 
             {/* Goal Add/Edit Modal */}
-            <Modal visible={isModalVisible} animationType="slide" transparent={true}>
-                <View style={styles.centeredView}>
-                    <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
-                    <View style={[styles.modalView, { backgroundColor: colors.card }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>{editingGoal ? '編輯目標' : '新增目標'}</Text>
-
+            <Modal visible={isModalVisible} animationType="slide" presentationStyle="pageSheet">
+                <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>{editingGoal ? '編輯目標' : '新增目標'}</Text>
+                        <TouchableOpacity onPress={() => setModalVisible(false)}>
+                            <Ionicons name="close" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.formContainer}>
+                        <Text style={styles.label}>目標名稱</Text>
                         <TextInput
-                            style={[styles.input, { borderColor: colors.borderColor, color: colors.text }]}
-                            placeholder="目標名稱 (例如: 新手機)"
+                            style={styles.input}
+                            placeholder="例如: 新手機"
                             placeholderTextColor={colors.subtleText}
                             value={name}
                             onChangeText={setName}
                         />
 
+                        <Text style={styles.label}>目標金額</Text>
                         <TextInput
-                            style={[styles.input, { borderColor: colors.borderColor, color: colors.text }]}
+                            style={styles.input}
                             placeholder="目標金額"
                             placeholderTextColor={colors.subtleText}
                             value={targetAmount}
@@ -457,32 +468,32 @@ export default function GoalScreen() {
                             keyboardType="numeric"
                         />
 
+                        <Text style={styles.label}>幣別</Text>
                         <TouchableOpacity
-                            style={[styles.dateButton, { borderColor: colors.borderColor }]}
+                            style={styles.dateButton}
                             onPress={() => setShowCurrencyPicker(true)}
                         >
-                            <Text style={[styles.dateText, { color: colors.text }]}>
-                                幣別: {currency}
-                            </Text>
+                            <Text style={styles.dateText}>{currency}</Text>
                             <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
                         </TouchableOpacity>
 
+                        <Text style={styles.label}>截止日期</Text>
                         <TouchableOpacity
-                            style={[styles.dateButton, { borderColor: colors.borderColor }]}
+                            style={styles.dateButton}
                             onPress={() => setShowDatePicker(!showDatePicker)}
                         >
-                            <Text style={deadline ? [styles.dateText, { color: colors.text }] : [styles.datePlaceholder, { color: colors.subtleText }]}>
-                                {deadline || '截止日期 (選填)'}
+                            <Text style={deadline ? styles.dateText : styles.datePlaceholder}>
+                                {deadline || '選填'}
                             </Text>
                             <Ionicons name="calendar-outline" size={20} color={colors.subtleText} />
                         </TouchableOpacity>
 
                         {showDatePicker && (
-                            <View style={[styles.datePickerContainer, { backgroundColor: colors.background, borderColor: colors.borderColor }]}>
+                            <View style={styles.datePickerContainer}>
                                 <DateTimePicker
                                     value={selectedDate}
                                     mode="date"
-                                    display="compact"
+                                    display="spinner"
                                     onChange={handleDateChange}
                                     minimumDate={new Date()}
                                     textColor={colors.text}
@@ -491,15 +502,11 @@ export default function GoalScreen() {
                             </View>
                         )}
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.buttonText}>取消</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF' }]} onPress={handleSaveGoal}>
-                                <Text style={styles.buttonText}>{editingGoal ? '更新' : '新增'}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                        <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', marginTop: 20 }]} onPress={handleSaveGoal}>
+                            <Text style={styles.buttonText}>{editingGoal ? '更新' : '新增'}</Text>
+                        </TouchableOpacity>
+                        <View style={{ height: 50 }} />
+                    </ScrollView>
 
                     {/* Currency Picker Overlay */}
                     <CurrencyPickerOverlay
@@ -592,20 +599,20 @@ export default function GoalScreen() {
                     />
                 </View>
             </Modal>
-        </SafeAreaView >
+        </View >
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-    title: { fontSize: 28, fontWeight: 'bold' },
-    listContent: { padding: 20 },
-    card: { borderRadius: 12, padding: 15, marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    headerTitle: { fontSize: 24, fontWeight: 'bold', color: colors.text },
+    listContent: { padding: 15, paddingBottom: 100 },
+    card: { backgroundColor: colors.card, borderRadius: 12, padding: 15, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    goalName: { fontSize: 18, fontWeight: '600' },
-    amountText: { fontSize: 16 },
-    deadlineText: { fontSize: 14, marginBottom: 10 },
+    goalName: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+    amountText: { fontSize: 16, fontWeight: '600', color: colors.text },
+    deadlineText: { fontSize: 14, color: colors.subtleText, marginBottom: 10 },
     progressBarContainer: { height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 10 },
     progressBar: { height: '100%', backgroundColor: '#FF9500' },
     progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -614,24 +621,28 @@ const styles = StyleSheet.create({
     adjustButton: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
     plusButton: { backgroundColor: '#34C759' },
     minusButton: { backgroundColor: '#FF3B30' },
-    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-    centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { width: '80%', borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: colors.subtleText },
+    modalContainer: { flex: 1, paddingTop: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
     modalSubtitle: { fontSize: 16, marginBottom: 15 },
-    input: { width: '100%', padding: 10, borderWidth: 1, borderRadius: 8, marginBottom: 15 },
+    formContainer: { padding: 20 },
+    label: { fontSize: 14, fontWeight: '500', color: colors.subtleText, marginBottom: 8, marginTop: 10 },
+    input: { backgroundColor: colors.inputBackground, borderRadius: 10, padding: 12, fontSize: 16, color: colors.text, borderWidth: 1, borderColor: colors.borderColor },
     dateButton: {
         width: '100%',
         padding: 12,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 10,
         marginBottom: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderColor: colors.borderColor,
+        backgroundColor: colors.inputBackground
     },
-    dateText: { fontSize: 16 },
-    datePlaceholder: { fontSize: 16 },
+    dateText: { fontSize: 16, color: colors.text },
+    datePlaceholder: { fontSize: 16, color: colors.subtleText },
     datePickerContainer: {
         width: '100%',
         borderRadius: 12,
@@ -639,19 +650,19 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         borderWidth: 1,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        borderColor: colors.borderColor
     },
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-    button: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
+    button: { padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flex: 1, marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#FF3B30' },
-    buttonText: { color: 'white', fontWeight: 'bold' },
+    buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     syncContainer: { width: '100%', marginBottom: 15 },
     syncHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     syncLabel: { fontSize: 16 },
     pickersContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     pickerWrapper: { flex: 1, maxWidth: '45%' },
     pickerLabel: { fontSize: 12, marginBottom: 5 },
-    pickerBox: { borderWidth: 1, borderRadius: 8, overflow: 'hidden' },
     pickerButton: {
         width: '100%',
         height: 50,
@@ -670,5 +681,7 @@ const styles = StyleSheet.create({
     pickerItem: { padding: 15, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     pickerItemText: { fontSize: 16 },
     pickerItemSubtext: { fontSize: 14 },
-    suggestionText: { fontSize: 14, marginBottom: 5, fontWeight: '500' }
+    suggestionText: { fontSize: 14, marginBottom: 5, fontWeight: '500' },
+    centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalView: { width: '80%', borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
 });

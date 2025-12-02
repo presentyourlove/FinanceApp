@@ -34,22 +34,6 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="analysis"
-        options={{
-          title: '分析',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bulb-outline" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="invest"
-        options={{
-          title: '投資',
-          tabBarIcon: ({ color }) => <TabBarIcon name="trending-up-outline" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
         name="budget"
         options={{
           title: '預算',
@@ -58,10 +42,18 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="goal"
+        name="plan"
         options={{
-          title: '目標',
-          tabBarIcon: ({ color }) => <TabBarIcon name="trophy-outline" color={color} />,
+          title: '規劃',
+          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="analysis"
+        options={{
+          title: '分析',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bulb-outline" color={color} />,
         }}
       />
 

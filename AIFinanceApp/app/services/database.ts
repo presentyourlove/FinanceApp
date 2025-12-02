@@ -766,5 +766,69 @@ export const dbOperations = {
     runSqlSync(`DROP TABLE IF EXISTS goals;`);
     runSqlSync(`DROP TABLE IF EXISTS investments;`);
     await initDatabase();
+  },
+  // Backup helpers
+  getAllTransactionsDB: async () => {
+    const rows = getRowsSync(`SELECT * FROM transactions;`) as any[];
+    return rows.map((row: any) => ({
+      id: row.id,
+      amount: row.amount,
+      type: row.type,
+      date: row.date,
+      description: row.description,
+      accountId: row.accountId,
+      targetAccountId: row.targetAccountId
+    }));
+  },
+  getAllInvestmentsDB: async () => {
+    const rows = getRowsSync(`SELECT * FROM investments;`) as any[];
+    return rows.map((row: any) => ({
+      ...row,
+      amount: Number(row.amount),
+      costPrice: row.costPrice ? Number(row.costPrice) : undefined,
+      currentPrice: row.currentPrice ? Number(row.currentPrice) : undefined,
+      interestRate: row.interestRate ? Number(row.interestRate) : undefined,
+      handlingFee: row.handlingFee ? Number(row.handlingFee) : undefined,
+    }));
+  },
+  // Import helpers (Preserve IDs)
+  importAccountDB: async (acc: any) => {
+    runSqlSync(
+      `INSERT INTO accounts (id, name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?, ?);`,
+      [acc.id, acc.name, acc.initialBalance, acc.currentBalance, acc.currency]
+    );
+  },
+  importTransactionDB: async (t: any) => {
+    runSqlSync(
+      `INSERT INTO transactions (id, amount, type, date, description, accountId, targetAccountId) 
+       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [t.id, t.amount, t.type, t.date, t.description, t.accountId, t.targetAccountId]
+    );
+  },
+  importBudgetDB: async (b: any) => {
+    runSqlSync(
+      `INSERT INTO budgets (id, category, amount, period, currency) VALUES (?, ?, ?, ?, ?);`,
+      [b.id, b.category, b.amount, b.period, b.currency]
+    );
+  },
+  importGoalDB: async (g: any) => {
+    runSqlSync(
+      `INSERT INTO goals (id, name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, ?, ?, ?, ?);`,
+      [g.id, g.name, g.targetAmount, g.currentAmount, g.deadline, g.currency]
+    );
+  },
+  importInvestmentDB: async (inv: any) => {
+    runSqlSync(
+      `INSERT INTO investments (
+        id, name, type, amount, costPrice, currentPrice, currency, date,
+        maturityDate, interestRate, interestFrequency, handlingFee,
+        purchaseMethod, notes, sourceAccountId, linkedTransactionId, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        inv.id, inv.name, inv.type, inv.amount, inv.costPrice, inv.currentPrice, inv.currency, inv.date,
+        inv.maturityDate, inv.interestRate, inv.interestFrequency, inv.handlingFee,
+        inv.purchaseMethod, inv.notes, inv.sourceAccountId, inv.linkedTransactionId, inv.status
+      ]
+    );
   }
 };

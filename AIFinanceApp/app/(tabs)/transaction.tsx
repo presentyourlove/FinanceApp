@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +22,8 @@ import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { dbOperations } from '@/app/services/database';
 import * as CategoryStorage from '@/app/utils/categoryStorage';
+import { useGoogleAuth } from '@/app/services/auth';
+import { useSync } from '@/app/hooks/useSync';
 
 interface Account {
   id: number;
@@ -64,6 +66,7 @@ export default function TransactionScreen() {
   const [categories, setCategories] = useState<CategoryStorage.Categories>(defaultCategories);
   const [isTransferModalVisible, setTransferModalVisible] = useState(false);
   const [isAccountSelectModalVisible, setAccountSelectModalVisible] = useState(false);
+  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editAmount, setEditAmount] = useState('');
@@ -347,6 +350,11 @@ export default function TransactionScreen() {
   const renderListHeader = () => (
     <>
       <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={{ width: '100%', alignItems: 'flex-end', paddingRight: 10 }}>
+          <TouchableOpacity onPress={() => setSettingsModalVisible(true)}>
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={styles.pickerButton} onPress={() => setAccountSelectModalVisible(true)}>
           <Text style={styles.pickerDisplayText}>{accounts.find(acc => acc.id === selectedAccountId)?.name || '選擇帳本'}</Text>
         </TouchableOpacity>
@@ -357,11 +365,11 @@ export default function TransactionScreen() {
       </View>
       <View style={styles.inputArea}>
         <View style={{ flexDirection: 'row', width: '90%', marginBottom: 10, justifyContent: 'space-between' }}>
-          <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => { setShowDatePicker(!showDatePicker); setShowTimePicker(false); }}>
             <Ionicons name="calendar-outline" size={20} color={colors.subtleText} style={{ marginRight: 8 }} />
             <Text style={styles.inputText}>{transactionDate.toLocaleDateString()}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.input, { flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => setShowTimePicker(true)}>
+          <TouchableOpacity style={[styles.input, { flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => { setShowTimePicker(!showTimePicker); setShowDatePicker(false); }}>
             <Ionicons name="time-outline" size={20} color={colors.subtleText} style={{ marginRight: 8 }} />
             <Text style={styles.inputText}>{transactionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
           </TouchableOpacity>
@@ -432,6 +440,7 @@ export default function TransactionScreen() {
       <TransferModal visible={isTransferModalVisible} onClose={() => setTransferModalVisible(false)} onTransfer={handleTransfer} accounts={accounts} colors={colors} styles={styles} />
       <EditTransferModal visible={isEditTransferModalVisible} onClose={() => setEditTransferModalVisible(false)} onUpdate={handleUpdateTransfer} accounts={accounts} amount={editTransferAmount} setAmount={setEditTransferAmount} fromAccount={editTransferFromAccount} setFromAccount={setEditTransferFromAccount} toAccount={editTransferToAccount} setToAccount={setEditTransferToAccount} date={editTransferDate} setDate={setEditTransferDate} description={editTransferDescription} setDescription={setEditTransferDescription} showDatePicker={showEditTransferDatePicker} setShowDatePicker={setShowEditTransferDatePicker} onDateChange={onEditTransferDateChange} colors={colors} styles={styles} />
       <AccountSelectModal visible={isAccountSelectModalVisible} onClose={() => setAccountSelectModalVisible(false)} accounts={accounts} onSelectAccount={setSelectedAccountId} colors={colors} styles={styles} />
+      <SettingsModal visible={isSettingsModalVisible} onClose={() => setSettingsModalVisible(false)} categories={categories} onAddCategory={CategoryStorage.addCategory} onDeleteCategory={CategoryStorage.deleteCategory} onMoveCategory={CategoryStorage.moveCategory} onDeleteAccount={dbOperations.deleteAccountDB} onAddAccount={dbOperations.addAccountDB} accounts={accounts} onRefreshData={refreshData} colors={colors} styles={styles} />
       <Modal visible={isEditModalVisible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
     </View>
   );
@@ -544,6 +553,103 @@ function EditTransferModal({ visible, onClose, onUpdate, accounts, amount, setAm
   );
 }
 
+function SettingsModal({ visible, onClose, categories, onAddCategory, onDeleteCategory, onMoveCategory, onDeleteAccount, onAddAccount, accounts, onRefreshData, colors, styles }: any) {
+  const [manageMode, setManageMode] = useState<'category' | 'account' | 'sync'>('category');
+  const { user, signIn, signOut, loading } = useGoogleAuth();
+  const { isBackingUp, isRestoring, lastBackupTime, handleBackup, handleRestore } = useSync(user?.uid);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View style={styles.centeredView}>
+        <View style={[styles.modalView, { width: '90%', maxHeight: '80%' }]}>
+          <Text style={styles.modalTitle}>設定</Text>
+
+          <View style={{ flexDirection: 'row', marginBottom: 15, borderBottomWidth: 1, borderColor: colors.borderColor }}>
+            <TouchableOpacity onPress={() => setManageMode('category')} style={{ padding: 10, borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: colors.tint }}>
+              <Text style={{ color: manageMode === 'category' ? colors.tint : colors.subtleText }}>分類</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setManageMode('account')} style={{ padding: 10, borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: colors.tint }}>
+              <Text style={{ color: manageMode === 'account' ? colors.tint : colors.subtleText }}>帳本</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setManageMode('sync')} style={{ padding: 10, borderBottomWidth: manageMode === 'sync' ? 2 : 0, borderColor: colors.tint }}>
+              <Text style={{ color: manageMode === 'sync' ? colors.tint : colors.subtleText }}>同步</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ width: '100%' }}>
+            {manageMode === 'sync' ? (
+              <View style={{ padding: 10 }}>
+                <Text style={[styles.label, { fontSize: 18, marginBottom: 15 }]}>Google 帳號同步</Text>
+                {user ? (
+                  <View>
+                    <Text style={{ marginBottom: 15, fontSize: 16, color: colors.text }}>已登入: {user.email}</Text>
+                    <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30', marginBottom: 20 }]} onPress={signOut} disabled={loading}>
+                      <Text style={styles.buttonText}>{loading ? '處理中...' : '登出'}</Text>
+                    </TouchableOpacity>
+
+                    <Text style={[styles.label, { fontSize: 18, marginBottom: 15 }]}>資料備份與還原</Text>
+
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: '#007AFF', marginBottom: 5, opacity: isBackingUp ? 0.7 : 1 }]}
+                      onPress={handleBackup}
+                      disabled={isBackingUp || isRestoring}
+                    >
+                      <Text style={styles.buttonText}>{isBackingUp ? '備份中...' : '立即備份至雲端'}</Text>
+                    </TouchableOpacity>
+
+                    <Text style={{ color: colors.subtleText, marginBottom: 20, fontSize: 12, textAlign: 'center' }}>
+                      {lastBackupTime ? `上次備份: ${new Date(lastBackupTime).toLocaleString()}` : '尚未備份'}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: '#34C759', opacity: isRestoring ? 0.7 : 1 }]}
+                      onPress={() => {
+                        Alert.alert(
+                          '確認還原',
+                          '這將會覆蓋您目前手機上的所有資料，確定要還原嗎？',
+                          [
+                            { text: '取消', style: 'cancel' },
+                            {
+                              text: '確定還原', style: 'destructive', onPress: () => handleRestore(() => {
+                                if (onRefreshData) onRefreshData();
+                              })
+                            }
+                          ]
+                        );
+                      }}
+                      disabled={isBackingUp || isRestoring}
+                    >
+                      <Text style={styles.buttonText}>{isRestoring ? '還原中...' : '從雲端還原'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={{ marginBottom: 20, color: colors.subtleText, lineHeight: 20 }}>
+                      登入 Google 帳號以啟用雲端同步功能，防止資料遺失，並在多個裝置間同步您的記帳資料。
+                    </Text>
+                    <TouchableOpacity style={[styles.button, { backgroundColor: '#4285F4' }]} onPress={signIn} disabled={loading}>
+                      <Text style={styles.buttonText}>{loading ? '登入中...' : '使用 Google 登入'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', padding: 20 }}>
+                <Text style={{ color: colors.subtleText }}>{manageMode === 'category' ? '分類管理功能在此' : '帳本管理功能在此'}</Text>
+                <Text style={{ color: colors.subtleText, fontSize: 12, marginTop: 5 }}>(原有功能保留，此處僅示意)</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 15, flex: 0, paddingVertical: 12 }]} onPress={onClose}>
+            <Text style={[styles.buttonText, { color: colors.text }]}>關閉</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
@@ -574,7 +680,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   pickerDisplayText: {
     fontSize: 50,
     fontWeight: '600',
-    color: colors.accent, // Changed from tint to accent
+    color: colors.accent,
     textAlign: 'center',
   },
   title: {
@@ -799,7 +905,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginHorizontal: 4,
   },
   filterButtonSelected: {
-    backgroundColor: colors.accent, // Changed from tint to accent
+    backgroundColor: colors.accent,
   },
   filterButtonText: {
     fontSize: 14,
@@ -823,7 +929,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderBottomColor: colors.borderColor,
   },
   iosPickerDoneText: {
-    color: colors.accent, // Use accent color for consistency
+    color: colors.accent,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -893,5 +999,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginHorizontal: 5,
+  },
+  settingSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 10,
+    marginTop: 10,
   },
 });

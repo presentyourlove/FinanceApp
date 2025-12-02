@@ -127,16 +127,16 @@ export default function AnalysisScreen() {
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>財務分析 ({mainCurrency})</Text>
-                    <TouchableOpacity style={styles.periodButton} onPress={() => setPeriod(p => p === 'month' ? 'year' : 'month')}>
-                        <Ionicons name="calendar-outline" size={20} color={colors.accent} style={{ marginRight: 5 }} />
-                        <Text style={styles.periodButtonText}>{period === 'month' ? '切換至年檢視' : '切換至月檢視'}</Text>
-                    </TouchableOpacity>
-                </View>
+        <View style={styles.container}>
+            <View style={[styles.header, { paddingTop: insets.top }]}>
+                <Text style={styles.title}>財務分析 ({mainCurrency})</Text>
+                <TouchableOpacity style={styles.periodButton} onPress={() => setPeriod(p => p === 'month' ? 'year' : 'month')}>
+                    <Ionicons name="calendar-outline" size={20} color={colors.accent} style={{ marginRight: 5 }} />
+                    <Text style={styles.periodButtonText}>{period === 'month' ? '切換至年檢視' : '切換至月檢視'}</Text>
+                </TouchableOpacity>
+            </View>
 
+            <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.overviewContainer}>
                     <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? '當月收入' : '當年收入'}</Text><Text style={styles.cardValueIncome}>${totalIncome.toFixed(0)}</Text></View>
                     <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? '當月支出' : '當年支出'}</Text><Text style={styles.cardValueExpense}>${totalExpense.toFixed(0)}</Text></View>
@@ -184,7 +184,7 @@ export default function AnalysisScreen() {
 const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: 20 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 15, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
     title: { fontSize: 24, fontWeight: 'bold', color: colors.text },
     periodButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBackground, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
     periodButtonText: { color: colors.accent, fontWeight: '600' },
