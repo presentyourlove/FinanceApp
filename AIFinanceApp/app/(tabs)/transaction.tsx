@@ -13,7 +13,6 @@ import {
   Platform,
   TouchableWithoutFeedback
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,8 +21,11 @@ import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { dbOperations } from '@/app/services/database';
 import * as CategoryStorage from '@/app/utils/categoryStorage';
-import { useGoogleAuth } from '@/app/services/auth';
-import { useSync } from '@/app/hooks/useSync';
+
+import TransferModal from '@/app/components/transaction/TransferModal';
+import AccountSelectModal from '@/app/components/transaction/AccountSelectModal';
+import EditTransferModal from '@/app/components/transaction/EditTransferModal';
+import SettingsModal from '@/app/components/transaction/SettingsModal';
 
 interface Account {
   id: number;
@@ -438,215 +440,11 @@ export default function TransactionScreen() {
     <View style={styles.container}>
       <FlatList data={filterTransactions()} renderItem={renderItem} keyExtractor={(item) => item.id.toString()} ListHeaderComponent={renderListHeader()} ListEmptyComponent={<Text style={styles.emptyText}>無交易紀錄</Text>} contentContainerStyle={{ paddingBottom: 100 }} keyboardDismissMode="on-drag" />
       <TransferModal visible={isTransferModalVisible} onClose={() => setTransferModalVisible(false)} onTransfer={handleTransfer} accounts={accounts} colors={colors} styles={styles} />
-      <EditTransferModal visible={isEditTransferModalVisible} onClose={() => setEditTransferModalVisible(false)} onUpdate={handleUpdateTransfer} accounts={accounts} amount={editTransferAmount} setAmount={setEditTransferAmount} fromAccount={editTransferFromAccount} setFromAccount={setEditTransferFromAccount} toAccount={editTransferToAccount} setToAccount={setEditTransferToAccount} date={editTransferDate} setDate={setEditTransferDate} description={editTransferDescription} setDescription={setEditTransferDescription} showDatePicker={showEditTransferDatePicker} setShowDatePicker={setShowEditTransferDatePicker} onDateChange={onEditTransferDateChange} colors={colors} styles={styles} />
+      <EditTransferModal visible={isEditTransferModalVisible} onClose={() => setEditTransferModalVisible(false)} onUpdate={handleUpdateTransfer} accounts={accounts} amount={editTransferAmount} setAmount={setEditTransferAmount} fromAccount={editTransferFromAccount} setFromAccount={setEditTransferFromAccount} toAccount={editTransferToAccount} setToAccount={setEditTransferToAccount} date={editTransferDate} description={editTransferDescription} setDescription={setEditTransferDescription} showDatePicker={showEditTransferDatePicker} setShowDatePicker={setShowEditTransferDatePicker} onDateChange={onEditTransferDateChange} colors={colors} styles={styles} />
       <AccountSelectModal visible={isAccountSelectModalVisible} onClose={() => setAccountSelectModalVisible(false)} accounts={accounts} onSelectAccount={setSelectedAccountId} colors={colors} styles={styles} />
       <SettingsModal visible={isSettingsModalVisible} onClose={() => setSettingsModalVisible(false)} categories={categories} onAddCategory={CategoryStorage.addCategory} onDeleteCategory={CategoryStorage.deleteCategory} onMoveCategory={CategoryStorage.moveCategory} onDeleteAccount={dbOperations.deleteAccountDB} onAddAccount={dbOperations.addAccountDB} accounts={accounts} onRefreshData={refreshData} colors={colors} styles={styles} />
       <Modal visible={isEditModalVisible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
     </View>
-  );
-}
-
-function TransferModal({ visible, onClose, onTransfer, accounts, colors, styles }: any) {
-  const [amount, setAmount] = useState('');
-  const [sourceId, setSourceId] = useState<number | undefined>(undefined);
-  const [targetId, setTargetId] = useState<number | undefined>(undefined);
-  const [selectionMode, setSelectionMode] = useState<'none' | 'source' | 'target'>('none');
-
-  const handleSubmit = () => {
-    if (!amount || !sourceId || !targetId) return Alert.alert('錯誤', '請填寫完整資訊');
-    onTransfer(parseFloat(amount), sourceId, targetId);
-    setAmount('');
-    setSourceId(undefined);
-    setTargetId(undefined);
-    onClose();
-  };
-
-  const renderSelectionList = () => (
-    <View style={{ width: '100%', maxHeight: 300 }}>
-      <Text style={styles.modalTitle}>請選擇{selectionMode === 'source' ? '轉出' : '轉入'}帳本</Text>
-      <ScrollView style={{ width: '100%' }}>
-        {accounts.map((acc: any) => (
-          <TouchableOpacity key={acc.id} style={styles.modalListItem} onPress={() => { (selectionMode === 'source' ? setSourceId : setTargetId)(acc.id); setSelectionMode('none'); }}>
-            <Text style={styles.inputText}>{`${acc.name} (${acc.currency})`}</Text>
-            {(selectionMode === 'source' ? sourceId === acc.id : targetId === acc.id) && <Ionicons name="checkmark" size={20} color={colors.tint} />}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <TouchableOpacity style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]} onPress={() => setSelectionMode('none')}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
-    </View>
-  );
-
-  const renderForm = () => (
-    <>
-      <Text style={styles.modalTitle}>轉帳</Text>
-      <TextInput style={[styles.input, { width: '100%', marginBottom: 15 }]} placeholder="金額" placeholderTextColor={colors.subtleText} keyboardType="numeric" value={amount} onChangeText={setAmount} />
-      <View style={{ width: '100%', marginBottom: 10 }}>
-        <Text style={styles.inputLabel}>從:</Text>
-        <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setSelectionMode('source')}>
-          <Text style={{ color: sourceId ? colors.text : colors.subtleText }}>{accounts.find((acc: any) => acc.id === sourceId)?.name || '請選擇轉出帳本'}</Text>
-          <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
-        </TouchableOpacity>
-      </View>
-      <View style={{ width: '100%', marginBottom: 20 }}>
-        <Text style={styles.inputLabel}>到:</Text>
-        <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setSelectionMode('target')}>
-          <Text style={{ color: targetId ? colors.text : colors.subtleText }}>{accounts.find((acc: any) => acc.id === targetId)?.name || '請選擇轉入帳本'}</Text>
-          <Ionicons name="chevron-down" size={20} color={colors.subtleText} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.modalButtonContainer}>
-        <TouchableOpacity style={[styles.button, styles.modalCloseButton]} onPress={onClose}><Text style={[styles.buttonText, { color: colors.text }]}>取消</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.modalConfirmButton]} onPress={handleSubmit}><Text style={styles.buttonText}>確認</Text></TouchableOpacity>
-      </View>
-    </>
-  );
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{selectionMode === 'none' ? renderForm() : renderSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
-  );
-}
-
-function AccountSelectModal({ visible, onClose, accounts, onSelectAccount, colors, styles }: any) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.centeredView}>
-        <View style={styles.accountSelectModalView}>
-          <Text style={styles.modalTitle}>選擇帳本</Text>
-          <ScrollView style={{ maxHeight: 300, width: '100%' }}>
-            {accounts.map((acc: any) => (
-              <TouchableOpacity key={acc.id} style={styles.accountSelectItem} onPress={() => { onSelectAccount(acc.id); onClose(); }}>
-                <Text style={styles.accountSelectItemText}>{`${acc.name} (${acc.currency})`}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 10, flex: 0, paddingVertical: 8 }]} onPress={onClose}><Text style={[styles.buttonText, { color: colors.text }]}>關閉</Text></TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function EditTransferModal({ visible, onClose, onUpdate, accounts, amount, setAmount, fromAccount, setFromAccount, toAccount, setToAccount, date, onDateChange, description, setDescription, showDatePicker, setShowDatePicker, colors, styles }: any) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>編輯轉帳記錄</Text>
-          <Text style={styles.label}>金額</Text>
-          <TextInput style={styles.input} placeholder="輸入金額" keyboardType="numeric" value={amount} onChangeText={setAmount} placeholderTextColor={colors.subtleText} />
-          <Text style={styles.label}>從 (轉出)</Text>
-          <View style={styles.pickerContainer}><Picker selectedValue={fromAccount} onValueChange={setFromAccount} style={{ color: colors.text }} dropdownIconColor={colors.text}><Picker.Item label="選擇帳戶" value={undefined} />{accounts.map((acc: Account) => (<Picker.Item key={acc.id} label={acc.name} value={acc.id} />))}</Picker></View>
-          <Text style={styles.label}>到 (轉入)</Text>
-          <View style={styles.pickerContainer}><Picker selectedValue={toAccount} onValueChange={setToAccount} style={{ color: colors.text }} dropdownIconColor={colors.text}><Picker.Item label="選擇帳戶" value={undefined} />{accounts.map((acc: Account) => (<Picker.Item key={acc.id} label={acc.name} value={acc.id} />))}</Picker></View>
-          <Text style={styles.label}>日期</Text>
-          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}><Text style={{ color: colors.text }}>{date.toLocaleDateString('zh-TW')}</Text></TouchableOpacity>
-          {showDatePicker && (<DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />)}
-          <Text style={styles.label}>備註</Text>
-          <TextInput style={styles.input} placeholder="輸入備註（選填）" value={description} onChangeText={setDescription} placeholderTextColor={colors.subtleText} />
-          <View style={styles.modalButtons}>
-            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={onUpdate}><Text style={styles.buttonText}>確認</Text></TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function SettingsModal({ visible, onClose, categories, onAddCategory, onDeleteCategory, onMoveCategory, onDeleteAccount, onAddAccount, accounts, onRefreshData, colors, styles }: any) {
-  const [manageMode, setManageMode] = useState<'category' | 'account' | 'sync'>('category');
-  const { user, signIn, signOut, loading } = useGoogleAuth();
-  const { isBackingUp, isRestoring, lastBackupTime, handleBackup, handleRestore } = useSync(user?.uid);
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View style={styles.centeredView}>
-        <View style={[styles.modalView, { width: '90%', maxHeight: '80%' }]}>
-          <Text style={styles.modalTitle}>設定</Text>
-
-          <View style={{ flexDirection: 'row', marginBottom: 15, borderBottomWidth: 1, borderColor: colors.borderColor }}>
-            <TouchableOpacity onPress={() => setManageMode('category')} style={{ padding: 10, borderBottomWidth: manageMode === 'category' ? 2 : 0, borderColor: colors.tint }}>
-              <Text style={{ color: manageMode === 'category' ? colors.tint : colors.subtleText }}>分類</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setManageMode('account')} style={{ padding: 10, borderBottomWidth: manageMode === 'account' ? 2 : 0, borderColor: colors.tint }}>
-              <Text style={{ color: manageMode === 'account' ? colors.tint : colors.subtleText }}>帳本</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setManageMode('sync')} style={{ padding: 10, borderBottomWidth: manageMode === 'sync' ? 2 : 0, borderColor: colors.tint }}>
-              <Text style={{ color: manageMode === 'sync' ? colors.tint : colors.subtleText }}>同步</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={{ width: '100%' }}>
-            {manageMode === 'sync' ? (
-              <View style={{ padding: 10 }}>
-                <Text style={[styles.label, { fontSize: 18, marginBottom: 15 }]}>Google 帳號同步</Text>
-                {user ? (
-                  <View>
-                    <Text style={{ marginBottom: 15, fontSize: 16, color: colors.text }}>已登入: {user.email}</Text>
-                    <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30', marginBottom: 20 }]} onPress={signOut} disabled={loading}>
-                      <Text style={styles.buttonText}>{loading ? '處理中...' : '登出'}</Text>
-                    </TouchableOpacity>
-
-                    <Text style={[styles.label, { fontSize: 18, marginBottom: 15 }]}>資料備份與還原</Text>
-
-                    <TouchableOpacity
-                      style={[styles.button, { backgroundColor: '#007AFF', marginBottom: 5, opacity: isBackingUp ? 0.7 : 1 }]}
-                      onPress={handleBackup}
-                      disabled={isBackingUp || isRestoring}
-                    >
-                      <Text style={styles.buttonText}>{isBackingUp ? '備份中...' : '立即備份至雲端'}</Text>
-                    </TouchableOpacity>
-
-                    <Text style={{ color: colors.subtleText, marginBottom: 20, fontSize: 12, textAlign: 'center' }}>
-                      {lastBackupTime ? `上次備份: ${new Date(lastBackupTime).toLocaleString()}` : '尚未備份'}
-                    </Text>
-
-                    <TouchableOpacity
-                      style={[styles.button, { backgroundColor: '#34C759', opacity: isRestoring ? 0.7 : 1 }]}
-                      onPress={() => {
-                        Alert.alert(
-                          '確認還原',
-                          '這將會覆蓋您目前手機上的所有資料，確定要還原嗎？',
-                          [
-                            { text: '取消', style: 'cancel' },
-                            {
-                              text: '確定還原', style: 'destructive', onPress: () => handleRestore(() => {
-                                if (onRefreshData) onRefreshData();
-                              })
-                            }
-                          ]
-                        );
-                      }}
-                      disabled={isBackingUp || isRestoring}
-                    >
-                      <Text style={styles.buttonText}>{isRestoring ? '還原中...' : '從雲端還原'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View>
-                    <Text style={{ marginBottom: 20, color: colors.subtleText, lineHeight: 20 }}>
-                      登入 Google 帳號以啟用雲端同步功能，防止資料遺失，並在多個裝置間同步您的記帳資料。
-                    </Text>
-                    <TouchableOpacity style={[styles.button, { backgroundColor: '#4285F4' }]} onPress={signIn} disabled={loading}>
-                      <Text style={styles.buttonText}>{loading ? '登入中...' : '使用 Google 登入'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View style={{ alignItems: 'center', padding: 20 }}>
-                <Text style={{ color: colors.subtleText }}>{manageMode === 'category' ? '分類管理功能在此' : '帳本管理功能在此'}</Text>
-                <Text style={{ color: colors.subtleText, fontSize: 12, marginTop: 5 }}>(原有功能保留，此處僅示意)</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={[styles.button, styles.modalCloseButton, { width: '100%', marginTop: 15, flex: 0, paddingVertical: 12 }]} onPress={onClose}>
-            <Text style={[styles.buttonText, { color: colors.text }]}>關閉</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -799,182 +597,159 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
   },
-  listItem: {
-    backgroundColor: colors.card,
-    padding: 15,
-    marginHorizontal: 15,
-    marginBottom: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  listItemTextContainer: {
-    flex: 1,
-  },
-  listItemType: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: colors.text,
-  },
-  listItemDate: {
-    fontSize: 12,
-    color: colors.subtleText,
-  },
-  listItemAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.subtleText,
-    marginTop: 20,
-    fontSize: 16,
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalView: {
-    width: '85%',
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 25,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5
-  },
-  modalListItem: {
-    width: '100%',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  accountSelectModalView: {
-    width: '90%',
-    maxHeight: '70%',
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: colors.text,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 15,
-  },
-  button: {
-    borderRadius: 10,
-    padding: 10,
-    elevation: 2,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: "#8E8E93",
-  },
-  confirmButton: {
-    backgroundColor: "#007AFF",
-  },
   filterContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-around',
     paddingHorizontal: 15,
+    marginBottom: 10,
   },
   filterButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     backgroundColor: colors.inputBackground,
-    marginHorizontal: 4,
   },
   filterButtonSelected: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.tint,
   },
   filterButtonText: {
     fontSize: 14,
-    color: colors.subtleText,
+    color: colors.text,
   },
   filterButtonTextSelected: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  iosPickerContent: {
-    backgroundColor: colors.card,
-    paddingBottom: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  iosPickerHeader: {
+  listItem: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderColor,
+    backgroundColor: colors.card,
   },
-  iosPickerDoneText: {
-    color: colors.accent,
+  listItemTextContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  listItemType: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
   },
-  modalButtonContainer: {
+  listItemDate: {
+    fontSize: 12,
+    color: colors.subtleText,
+  },
+  listItemAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 50,
+    color: colors.subtleText,
+    fontSize: 16,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    width: '80%',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  accountSelectModalView: {
+    width: '80%',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: colors.text,
+  },
+  modalListItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
     width: '100%',
-    marginTop: 20,
-    gap: 10
-  },
-  modalCloseButton: {
-    backgroundColor: colors.inputBackground,
-    flex: 1
-  },
-  modalConfirmButton: {
-    backgroundColor: colors.accent,
-    flex: 1
   },
   accountSelectItem: {
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderColor,
+    width: '100%',
+    alignItems: 'center',
   },
   accountSelectItemText: {
-    fontSize: 16,
+    fontSize: 18,
     color: colors.text,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  button: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: colors.subtleText,
+  },
+  confirmButton: {
+    backgroundColor: colors.tint,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    width: '90%',
+    width: '85%',
     backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
-    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: colors.text,
+    fontSize: 14,
+    color: colors.subtleText,
+    marginBottom: 5,
     marginTop: 10,
   },
   pickerContainer: {
@@ -989,9 +764,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderColor,
     borderRadius: 10,
-    backgroundColor: colors.inputBackground,
     marginBottom: 10,
-    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
   },
   modalButton: {
     flex: 1,
@@ -1000,11 +774,18 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 5,
   },
-  settingSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 10,
-    marginTop: 10,
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: colors.inputBackground,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+  },
+  modalConfirmButton: {
+    backgroundColor: colors.tint,
   },
 });
