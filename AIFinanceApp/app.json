@@ -1,11 +1,12 @@
 {
   "expo": {
     "name": "AIFinanceApp",
-    "slug": "AIFinanceApp",
+    "slug": "aifinanceapp",
+    "owner": "jasonwth",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "aifinanceapp",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
