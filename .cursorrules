@@ -2,4 +2,21 @@
 
 1.  **Error Handling & Permissions**: When generating code or answering questions, if you encounter a problem you cannot handle or an error; or when modifying code, if you find you lack permission to continue fixing a defect or error, please **STOP**. Do not continue generating. Instead, point out the difficulty encountered and provide a solution for me to handle it myself.
 
-2.  **Language**: Please use Traditional Chinese (繁體中文) for ALL responses, including implementation plans, goals, and explanations.
+2.  **Language**: Please use Traditional Chinese (繁體中文) for ALL responses and artifacts (including Implementation Plans, Goals, etc.).
+
+3.  **Plan Before Action**: Do not execute any code modifications directly. Always provide an implementation plan first. The plan must be divided into distinct phases/stages. Wait for my confirmation before proceeding.
+
+4.  **Web Development Guidelines**: When developing web applications, prioritize the following:
+    *   **Environment & Languages**:
+        *   HTML / CSS / SCSS: Use HTML5, CSS3, and SCSS.
+        *   Responsive Design (RWD): Ensure proper display on all devices.
+        *   JavaScript / Vue.js: Use Vue.js framework, supporting Client-Side Rendering (CSR) or Static Site Generation (SSG).
+    *   **Frameworks & Tools**:
+        *   CSS Framework: Bootstrap 5.
+        *   Naming Convention: BEM or OOCSS.
+        *   Node.js: Version 20+.
+        *   Package Manager: Yarn.
+    *   **Development Workflow**:
+        *   CLI Tools: Use command-line tools for compiling Node / SCSS / JS.
+        *   Componentization: Support Vue.js component-based development.
+        *   Rendering Mode: CSR or SSG.
