@@ -27,7 +27,7 @@ export const useSync = (userId: string | undefined) => {
 
     const handleBackup = useCallback(async () => {
         if (!userId) {
-            Alert.alert('錯誤', '請先登入 Google 帳號');
+            Alert.alert('錯誤', '請先登入帳號');
             return;
         }
 
@@ -47,7 +47,7 @@ export const useSync = (userId: string | undefined) => {
             Alert.alert('成功', '備份已上傳至雲端');
         } catch (error) {
             console.error('Backup failed:', error);
-            Alert.alert('備份失敗', '請檢查網路連線或稍後再試');
+            Alert.alert('備份失敗', error instanceof Error ? error.message : '未知錯誤');
         } finally {
             setIsBackingUp(false);
         }
@@ -55,7 +55,7 @@ export const useSync = (userId: string | undefined) => {
 
     const handleRestore = useCallback(async (onSuccess?: () => void) => {
         if (!userId) {
-            Alert.alert('錯誤', '請先登入 Google 帳號');
+            Alert.alert('錯誤', '請先登入帳號');
             return;
         }
 

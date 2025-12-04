@@ -18,9 +18,8 @@ import { dbOperations } from '@/app/services/database';
 import * as CategoryStorage from '@/app/utils/categoryStorage';
 import * as CurrencyStorage from '@/app/utils/currencyStorage';
 import { ThemeType } from '@/app/utils/themeStorage';
-import { useGoogleAuth } from '@/app/services/auth';
-import { useSync } from '@/app/hooks/useSync';
 import SwipeView from '@/app/components/common/SwipeView';
+import SyncSettingsView from '@/app/components/settings/SyncSettingsView';
 
 interface Account {
     id: number;
@@ -57,10 +56,6 @@ export default function SettingsScreen() {
         exchangeRates: {}
     });
     const [tempRates, setTempRates] = useState<{ [key: string]: string }>({});
-
-    // Sync hooks
-    const { user, signIn, signOut, loading } = useGoogleAuth();
-    const { isBackingUp, isRestoring, lastBackupTime, handleBackup, handleRestore } = useSync(user?.uid);
 
     // 載入資料
     const loadData = async () => {
@@ -422,7 +417,7 @@ export default function SettingsScreen() {
 
                 <Text style={styles.subtitle}>現有帳本</Text>
                 <View style={styles.card}>
-                    {accounts?.map((acc: any) => (
+                    {accounts?.map((acc: Account) => (
                         <View key={acc.id} style={styles.settingListItem}>
                             <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
                             <TouchableOpacity onPress={() => handleDeleteAccount(acc.id)}>
@@ -521,61 +516,7 @@ export default function SettingsScreen() {
     const renderSyncSettings = () => (
         <SwipeView onBack={() => setManageMode('main')}>
             <ScrollView style={{ flex: 1 }}>
-                <Text style={styles.subtitle}>Google 帳號同步</Text>
-                <View style={{ paddingHorizontal: 20 }}>
-                    {user ? (
-                        <View style={styles.card}>
-                            <Text style={{ marginBottom: 15, fontSize: 16, color: colors.text }}>已登入: {user.email}</Text>
-                            <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30', marginBottom: 20 }]} onPress={signOut} disabled={loading}>
-                                <Text style={styles.buttonText}>{loading ? '處理中...' : '登出'}</Text>
-                            </TouchableOpacity>
-
-                            <Text style={[styles.label, { fontSize: 18, marginBottom: 15, color: colors.text, fontWeight: 'bold' }]}>資料備份與還原</Text>
-
-                            <TouchableOpacity
-                                style={[styles.button, { backgroundColor: '#007AFF', marginBottom: 5, opacity: isBackingUp ? 0.7 : 1 }]}
-                                onPress={handleBackup}
-                                disabled={isBackingUp || isRestoring}
-                            >
-                                <Text style={styles.buttonText}>{isBackingUp ? '備份中...' : '立即備份至雲端'}</Text>
-                            </TouchableOpacity>
-
-                            <Text style={{ color: colors.subtleText, marginBottom: 20, fontSize: 12, textAlign: 'center' }}>
-                                {lastBackupTime ? `上次備份: ${new Date(lastBackupTime).toLocaleString()}` : '尚未備份'}
-                            </Text>
-
-                            <TouchableOpacity
-                                style={[styles.button, { backgroundColor: '#34C759', opacity: isRestoring ? 0.7 : 1 }]}
-                                onPress={() => {
-                                    Alert.alert(
-                                        '確認還原',
-                                        '這將會覆蓋您目前手機上的所有資料，確定要還原嗎？',
-                                        [
-                                            { text: '取消', style: 'cancel' },
-                                            {
-                                                text: '確定還原', style: 'destructive', onPress: () => handleRestore(() => {
-                                                    loadData();
-                                                })
-                                            }
-                                        ]
-                                    );
-                                }}
-                                disabled={isBackingUp || isRestoring}
-                            >
-                                <Text style={styles.buttonText}>{isRestoring ? '還原中...' : '從雲端還原'}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <View style={styles.card}>
-                            <Text style={{ marginBottom: 20, color: colors.subtleText, lineHeight: 20 }}>
-                                登入 Google 帳號以啟用雲端同步功能，防止資料遺失，並在多個裝置間同步您的記帳資料。
-                            </Text>
-                            <TouchableOpacity style={[styles.button, { backgroundColor: '#4285F4' }]} onPress={signIn} disabled={loading}>
-                                <Text style={styles.buttonText}>{loading ? '登入中...' : '使用 Google 登入'}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
+                <SyncSettingsView onRefreshData={loadData} />
             </ScrollView>
         </SwipeView>
     );

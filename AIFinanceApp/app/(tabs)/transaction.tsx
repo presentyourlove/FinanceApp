@@ -442,7 +442,7 @@ export default function TransactionScreen() {
       <TransferModal visible={isTransferModalVisible} onClose={() => setTransferModalVisible(false)} onTransfer={handleTransfer} accounts={accounts} colors={colors} styles={styles} />
       <EditTransferModal visible={isEditTransferModalVisible} onClose={() => setEditTransferModalVisible(false)} onUpdate={handleUpdateTransfer} accounts={accounts} amount={editTransferAmount} setAmount={setEditTransferAmount} fromAccount={editTransferFromAccount} setFromAccount={setEditTransferFromAccount} toAccount={editTransferToAccount} setToAccount={setEditTransferToAccount} date={editTransferDate} description={editTransferDescription} setDescription={setEditTransferDescription} showDatePicker={showEditTransferDatePicker} setShowDatePicker={setShowEditTransferDatePicker} onDateChange={onEditTransferDateChange} colors={colors} styles={styles} />
       <AccountSelectModal visible={isAccountSelectModalVisible} onClose={() => setAccountSelectModalVisible(false)} accounts={accounts} onSelectAccount={setSelectedAccountId} colors={colors} styles={styles} />
-      <SettingsModal visible={isSettingsModalVisible} onClose={() => setSettingsModalVisible(false)} categories={categories} onAddCategory={CategoryStorage.addCategory} onDeleteCategory={CategoryStorage.deleteCategory} onMoveCategory={CategoryStorage.moveCategory} onDeleteAccount={dbOperations.deleteAccountDB} onAddAccount={dbOperations.addAccountDB} accounts={accounts} onRefreshData={refreshData} colors={colors} styles={styles} />
+      <SettingsModal visible={isSettingsModalVisible} onClose={() => setSettingsModalVisible(false)} onRefreshData={refreshData} colors={colors} styles={styles} />
       <Modal visible={isEditModalVisible} animationType="slide" transparent={true}><TouchableWithoutFeedback onPress={Keyboard.dismiss}><View style={styles.centeredView}><View style={styles.modalView}>{editSelectionMode === 'none' ? renderEditForm() : renderEditSelectionList()}</View></View></TouchableWithoutFeedback></Modal>
     </View>
   );
@@ -610,7 +610,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.inputBackground,
   },
   filterButtonSelected: {
-    backgroundColor: colors.tint,
+    backgroundColor: '#007AFF',
   },
   filterButtonText: {
     fontSize: 14,

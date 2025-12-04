@@ -33,7 +33,7 @@ const getRowsSync = (sql: string, params: any[] = []) => {
 // ===================================================
 // 1. 初始化資料庫
 // ===================================================
-export const initDatabase = async () => {
+export const initDatabase = async (skipDefaultData: boolean = false) => {
   try {
     // 啟用外鍵約束
     runSqlSync('PRAGMA foreign_keys = ON;');
@@ -133,49 +133,51 @@ export const initDatabase = async () => {
 
 
     // 檢查是否需要插入預設資料
-    const resAccounts = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`) as any[];
-    const countAccounts = resAccounts && resAccounts.length > 0 ? resAccounts[0].count : 0;
+    if (!skipDefaultData) {
+      const resAccounts = getRowsSync(`SELECT COUNT(id) as count FROM accounts;`) as any[];
+      const countAccounts = resAccounts && resAccounts.length > 0 ? resAccounts[0].count : 0;
 
-    if (countAccounts === 0) {
-      console.log("No initial accounts found. Inserting default data...");
-      const initialAccounts = [
-        { name: '錢包', initialBalance: 500, currentBalance: 500, currency: 'TWD' },
-        { name: '銀行戶口', initialBalance: 50000, currentBalance: 50000, currency: 'TWD' },
-        { name: '信用卡', initialBalance: 0, currentBalance: 0, currency: 'TWD' },
-      ];
-      for (const acc of initialAccounts) {
-        runSqlSync(
-          `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
-          [acc.name, acc.initialBalance, acc.currentBalance, acc.currency]
-        );
+      if (countAccounts === 0) {
+        console.log("No initial accounts found. Inserting default data...");
+        const initialAccounts = [
+          { name: '錢包', initialBalance: 500, currentBalance: 500, currency: 'TWD' },
+          { name: '銀行戶口', initialBalance: 50000, currentBalance: 50000, currency: 'TWD' },
+          { name: '信用卡', initialBalance: 0, currentBalance: 0, currency: 'TWD' },
+        ];
+        for (const acc of initialAccounts) {
+          runSqlSync(
+            `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
+            [acc.name, acc.initialBalance, acc.currentBalance, acc.currency]
+          );
+        }
+        console.log("Default accounts inserted.");
       }
-      console.log("Default accounts inserted.");
-    }
 
-    // 2. 檢查預算 (Budgets)
-    const resBudgets = getRowsSync(`SELECT COUNT(id) as count FROM budgets;`) as any[];
-    const countBudgets = resBudgets && resBudgets.length > 0 ? resBudgets[0].count : 0;
+      // 2. 檢查預算 (Budgets)
+      const resBudgets = getRowsSync(`SELECT COUNT(id) as count FROM budgets;`) as any[];
+      const countBudgets = resBudgets && resBudgets.length > 0 ? resBudgets[0].count : 0;
 
-    if (countBudgets === 0) {
-      console.log("No initial budgets found. Inserting default data...");
-      runSqlSync(
-        `INSERT INTO budgets (category, amount, period, currency) VALUES (?, ?, ?, ?);`,
-        ['餐飲', 6000, 'monthly', 'TWD']
-      );
-      console.log("Default budget inserted.");
-    }
+      if (countBudgets === 0) {
+        console.log("No initial budgets found. Inserting default data...");
+        runSqlSync(
+          `INSERT INTO budgets (category, amount, period, currency) VALUES (?, ?, ?, ?);`,
+          ['餐飲', 6000, 'monthly', 'TWD']
+        );
+        console.log("Default budget inserted.");
+      }
 
-    // 3. 檢查存錢目標 (Goals)
-    const resGoals = getRowsSync(`SELECT COUNT(id) as count FROM goals;`) as any[];
-    const countGoals = resGoals && resGoals.length > 0 ? resGoals[0].count : 0;
+      // 3. 檢查存錢目標 (Goals)
+      const resGoals = getRowsSync(`SELECT COUNT(id) as count FROM goals;`) as any[];
+      const countGoals = resGoals && resGoals.length > 0 ? resGoals[0].count : 0;
 
-    if (countGoals === 0) {
-      console.log("No initial goals found. Inserting default data...");
-      runSqlSync(
-        `INSERT INTO goals (name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, ?, ?, ?);`,
-        ['新手機', 30000, 5000, '2025-12-31', 'TWD']
-      );
-      console.log("Default goal inserted.");
+      if (countGoals === 0) {
+        console.log("No initial goals found. Inserting default data...");
+        runSqlSync(
+          `INSERT INTO goals (name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, ?, ?, ?);`,
+          ['新手機', 30000, 5000, '2025-12-31', 'TWD']
+        );
+        console.log("Default goal inserted.");
+      }
     }
 
   } catch (error) {
@@ -765,7 +767,7 @@ export const dbOperations = {
     runSqlSync(`DROP TABLE IF EXISTS budgets;`);
     runSqlSync(`DROP TABLE IF EXISTS goals;`);
     runSqlSync(`DROP TABLE IF EXISTS investments;`);
-    await initDatabase();
+    await initDatabase(true);
   },
   // Backup helpers
   getAllTransactionsDB: async () => {
@@ -801,7 +803,7 @@ export const dbOperations = {
   importTransactionDB: async (t: any) => {
     runSqlSync(
       `INSERT INTO transactions (id, amount, type, date, description, accountId, targetAccountId) 
-       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+    VALUES (?, ?, ?, ?, ?, ?, ?);`,
       [t.id, t.amount, t.type, t.date, t.description, t.accountId, t.targetAccountId]
     );
   },
@@ -820,10 +822,10 @@ export const dbOperations = {
   importInvestmentDB: async (inv: any) => {
     runSqlSync(
       `INSERT INTO investments (
-        id, name, type, amount, costPrice, currentPrice, currency, date,
-        maturityDate, interestRate, interestFrequency, handlingFee,
-        purchaseMethod, notes, sourceAccountId, linkedTransactionId, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      id, name, type, amount, costPrice, currentPrice, currency, date,
+      maturityDate, interestRate, interestFrequency, handlingFee,
+      purchaseMethod, notes, sourceAccountId, linkedTransactionId, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         inv.id, inv.name, inv.type, inv.amount, inv.costPrice, inv.currentPrice, inv.currency, inv.date,
         inv.maturityDate, inv.interestRate, inv.interestFrequency, inv.handlingFee,
