@@ -21,29 +21,12 @@ import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/app/context/ThemeContext';
 import { dbOperations } from '@/app/services/database';
 import * as CategoryStorage from '@/app/utils/categoryStorage';
+import { Account, Transaction } from '@/app/types';
 
 import TransferModal from '@/app/components/transaction/TransferModal';
 import AccountSelectModal from '@/app/components/transaction/AccountSelectModal';
 import EditTransferModal from '@/app/components/transaction/EditTransferModal';
 import SettingsModal from '@/app/components/transaction/SettingsModal';
-
-interface Account {
-  id: number;
-  name: string;
-  initialBalance: number;
-  currentBalance: number;
-  currency: string;
-}
-
-interface Transaction {
-  id: number;
-  amount: number;
-  type: 'income' | 'expense' | 'transfer';
-  date: string;
-  description: string;
-  accountId: number;
-  targetAccountId?: number;
-}
 
 const defaultCategories = {
   expense: [

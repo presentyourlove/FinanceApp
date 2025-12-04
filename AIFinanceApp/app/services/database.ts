@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Account, Transaction, Budget, Goal, Investment } from '@/app/types';
 
 // 建立資料庫連線 (同步/非同步混合處理)
 // Expo SQLite 新版 API 行為：openDatabaseSync
@@ -189,42 +190,6 @@ export const initDatabase = async (skipDefaultData: boolean = false) => {
 // ===================================================
 // 2. 資料庫 CRUD 操作
 // ===================================================
-
-interface Account {
-  id: number;
-  name: string;
-  initialBalance: number;
-  currentBalance: number;
-  currency: string;
-}
-
-interface Transaction {
-  id: number;
-  amount: number;
-  type: 'income' | 'expense' | 'transfer';
-  date: string; // 存為字串
-  description: string;
-  accountId: number;
-  targetAccountId?: number;
-}
-
-export interface Budget {
-  id: number;
-  category: string;
-  amount: number;
-  period: string;
-  currency: string;
-}
-
-export interface Goal {
-  id: number;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline?: string;
-  currency: string;
-}
-
 
 /**
  * 讀取所有帳本
@@ -566,26 +531,6 @@ export const getDistinctCategories = async (): Promise<string[]> => {
 };
 
 // --- 投資功能 (Investments) ---
-
-export interface Investment {
-  id: number;
-  name: string;
-  type: 'stock' | 'fixed_deposit' | 'savings';
-  amount: number;
-  costPrice?: number;
-  currentPrice?: number;
-  currency: string;
-  date: string;
-  maturityDate?: string;
-  interestRate?: number;
-  interestFrequency?: 'daily' | 'monthly' | 'yearly';
-  handlingFee?: number;
-  purchaseMethod?: string;
-  notes?: string;
-  sourceAccountId?: number;
-  linkedTransactionId?: number;
-  status: 'active' | 'sold' | 'closed';
-}
 
 export const addInvestment = async (
   data: Omit<Investment, 'id' | 'status'>,
