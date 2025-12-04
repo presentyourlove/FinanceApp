@@ -7,9 +7,9 @@ import {
     TouchableOpacity,
     Alert,
 } from 'react-native';
-import { useAuth } from '@/app/services/auth';
-import { useSync } from '@/app/hooks/useSync';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useAuth } from '@/src/services/auth';
+import { useSync } from '@/src/hooks/useSync';
+import { useTheme } from '@/src/context/ThemeContext';
 
 interface SyncSettingsViewProps {
     onRefreshData?: () => void;

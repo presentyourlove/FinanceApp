@@ -18,10 +18,10 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dbOperations, Goal } from '@/app/services/database';
+import { dbOperations, Goal } from '@/src/services/database';
 import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export default function GoalView({ style }: { style?: any }) {
     // const insets = useSafeAreaInsets();

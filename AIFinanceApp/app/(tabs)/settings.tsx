@@ -13,13 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '@/app/context/ThemeContext';
-import { dbOperations } from '@/app/services/database';
-import * as CategoryStorage from '@/app/utils/categoryStorage';
-import * as CurrencyStorage from '@/app/utils/currencyStorage';
-import { ThemeType } from '@/app/utils/themeStorage';
-import SwipeView from '@/app/components/common/SwipeView';
-import SyncSettingsView from '@/app/components/settings/SyncSettingsView';
+import { useTheme } from '@/src/context/ThemeContext';
+import { dbOperations } from '@/src/services/database';
+import * as CategoryStorage from '@/src/utils/categoryStorage';
+import * as CurrencyStorage from '@/src/utils/currencyStorage';
+import { ThemeType } from '@/src/utils/themeStorage';
+import SwipeView from '@/src/components/common/SwipeView';
+import SyncSettingsView from '@/src/components/settings/SyncSettingsView';
 
 interface Account {
     id: number;

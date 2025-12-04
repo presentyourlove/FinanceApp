@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/src/context/ThemeContext';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof Ionicons>['name'];

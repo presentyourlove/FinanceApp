@@ -18,15 +18,15 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-import { useTheme } from '@/app/context/ThemeContext';
-import { dbOperations } from '@/app/services/database';
-import * as CategoryStorage from '@/app/utils/categoryStorage';
-import { Account, Transaction } from '@/app/types';
+import { useTheme } from '@/src/context/ThemeContext';
+import { dbOperations } from '@/src/services/database';
+import * as CategoryStorage from '@/src/utils/categoryStorage';
+import { Account, Transaction } from '@/src/types';
 
-import TransferModal from '@/app/components/transaction/TransferModal';
-import AccountSelectModal from '@/app/components/transaction/AccountSelectModal';
-import EditTransferModal from '@/app/components/transaction/EditTransferModal';
-import SettingsModal from '@/app/components/transaction/SettingsModal';
+import TransferModal from '@/src/components/transaction/TransferModal';
+import AccountSelectModal from '@/src/components/transaction/AccountSelectModal';
+import EditTransferModal from '@/src/components/transaction/EditTransferModal';
+import SettingsModal from '@/src/components/transaction/SettingsModal';
 
 const defaultCategories = {
   expense: [

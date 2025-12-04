@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
 // Import our custom theme context
-import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.

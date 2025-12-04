@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Account, Transaction, Budget, Goal, Investment } from '@/app/types';
+import { Account, Transaction, Budget, Goal, Investment } from '@/src/types';
 
 // 建立資料庫連線 (同步/非同步混合處理)
 // Expo SQLite 新版 API 行為：openDatabaseSync
@@ -779,3 +779,5 @@ export const dbOperations = {
     );
   }
 };
+// Re-export types for convenience
+export type { Account, Transaction, Budget, Goal, Investment } from '@/src/types';

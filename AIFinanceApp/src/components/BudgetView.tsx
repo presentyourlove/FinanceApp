@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dbOperations, Budget } from '@/app/services/database';
+import { dbOperations, Budget } from '@/src/services/database';
 import { useFocusEffect } from 'expo-router';
-import * as CategoryStorage from '@/app/utils/categoryStorage';
-import * as CurrencyStorage from '@/app/utils/currencyStorage';
-import { useTheme } from '@/app/context/ThemeContext';
+import * as CategoryStorage from '@/src/utils/categoryStorage';
+import * as CurrencyStorage from '@/src/utils/currencyStorage';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export default function BudgetView({ style }: { style?: any }) {
     const insets = useSafeAreaInsets();

@@ -6,7 +6,7 @@ import {
     TouchableOpacity,
     ScrollView,
 } from 'react-native';
-import SyncSettingsView from '@/app/components/settings/SyncSettingsView';
+import SyncSettingsView from '@/src/components/settings/SyncSettingsView';
 
 interface SettingsModalProps {
     visible: boolean;

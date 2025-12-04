@@ -8,12 +8,12 @@ import {
     Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { dbOperations } from '../services/database';
+import { dbOperations } from '@/src/services/database';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
-import { useTheme } from '@/app/context/ThemeContext';
-import * as CurrencyStorage from '@/app/utils/currencyStorage';
+import { useTheme } from '@/src/context/ThemeContext';
+import * as CurrencyStorage from '@/src/utils/currencyStorage';
 
 type AnalysisPeriod = 'month' | 'year';
 
