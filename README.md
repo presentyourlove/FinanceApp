@@ -1,51 +1,113 @@
-# AIFinanceApp
+# AIFinanceApp - 智慧理財助手
 
-AIFinanceApp 是一個智慧理財應用程式，旨在協助使用者輕鬆管理個人財務。透過直觀的介面與強大的功能，您可以隨時隨地追蹤收支、規劃預算並分析財務狀況。
+AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理財應用程式。透過直觀的介面與強大的功能，協助使用者輕鬆追蹤收支、規劃預算、設定存錢目標，並透過圖表分析財務狀況。支援雲端同步，確保您的財務數據安全無虞。
 
-## 主要功能
+## ✨ 主要功能 (Features)
 
-### 1. 記帳 (Transaction)
+### 1. 📝 記帳 (Transactions)
 
-* **收支記錄**：快速記錄每日收入與支出。
-* **篩選功能**：支援按「今日」、「本月」、「本年」及「全部」篩選交易紀錄，方便檢視特定期間的財務狀況。
+* **收支記錄**：快速記錄每日收入與支出，支援多種分類。
+* **轉帳功能**：支援帳戶間的資金轉移。
+* **智慧篩選**：可按「今日」、「本月」、「本年」及「全部」快速篩選交易紀錄。
 
-### 2. 預算 (Budget)
+### 2. 💰 預算 (Budgets)
 
-* **預算管理**：設定並追蹤各類別的預算，有效控制開支。
+* **預算設定**：針對不同類別（如餐飲、交通）設定每月預算。
+* **進度追蹤**：即時顯示預算使用百分比，避免超支。
 
-### 3. 規劃 (Planning)
+### 3. 🎯 規劃 (Planning)
 
-* **財務規劃**：協助您設定投資目標與財務計畫，實現長期財富增長。
+* **存錢目標**：設定具體的存錢目標（如買車、旅遊），追蹤達成進度。
+* **投資追蹤**：記錄股票、定存等投資項目，掌握資產增值狀況。
 
-### 4. 分析 (Analysis)
+### 4. 📊 分析 (Analysis)
 
-* **圖表分析**：提供清晰的財務分析圖表，讓您一目了然資金流向。
+* **圖表分析**：提供圓餅圖與長條圖，清晰呈現資金流向與消費結構。
+* **趨勢洞察**：分析長期財務趨勢，協助做出更好的財務決策。
 
-### 5. 設定 (Settings)
+### 5. ⚙️ 設定 (Settings)
 
-* **雲端同步**：
-  * **備份至雲端**：將您的財務資料安全備份至雲端。
-  * **從雲端還原**：更換裝置或資料遺失時，可輕鬆從雲端還原資料。
-* **個人化設定**：依據您的需求調整應用程式設定。
+* **雲端同步**：整合 Firebase，支援資料備份與還原，跨裝置無縫接軌。
+* **個人化**：支援深色模式 (Dark Mode) 與多種主題色系。
+* **匯出功能**：支援匯出交易記錄為 CSV 格式。
 
-## 技術棧
+## 🛠️ 技術堆疊 (Tech Stack)
 
-* **React Native**
-* **Expo**
-* **TypeScript**
+* **核心框架**: [React Native](https://reactnative.dev/) (v0.76), [Expo](https://expo.dev/) (v52)
+* **語言**: [TypeScript](https://www.typescriptlang.org/)
+* **路由管理**: [Expo Router](https://docs.expo.dev/router/introduction/)
+* **本地資料庫**: [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+* **雲端服務**: [Firebase](https://firebase.google.com/) (Authentication, Firestore)
+* **圖表套件**: [React Native Chart Kit](https://github.com/indiespirit/react-native-chart-kit)
+* **UI 元件**: React Native Elements, Expo Vector Icons
 
-## 安裝與執行
+## 📋 環境需求 (Prerequisites)
 
-請確保您的環境已安裝 Node.js。
+* **Node.js**: 建議 v20.0.0 或以上版本。
+* **npm** 或 **yarn**: 套件管理工具。
+* **Expo Go**: 請在您的 iOS 或 Android 手機上下載 Expo Go App 以進行測試。
 
-1. 安裝相依套件：
+## 🚀 安裝與執行 (Installation & Setup)
+
+1. **複製專案 (Clone Repository)**
+
+    ```bash
+    git clone https://github.com/your-username/AIFinanceApp.git
+    cd AIFinanceApp
+    ```
+
+2. **安裝相依套件 (Install Dependencies)**
 
     ```bash
     npm install
+    # 或
+    yarn install
     ```
 
-2. 啟動應用程式：
+3. **設定環境變數 (Environment Variables)**
+
+    請在專案根目錄建立 `.env` 檔案，並填入您的 Firebase 設定：
+
+    ```env
+    EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+    EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+    EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+    EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+    EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+    ```
+
+4. **啟動應用程式 (Start Application)**
 
     ```bash
     npx expo start
     ```
+
+    啟動後，使用手機上的 Expo Go App 掃描終端機顯示的 QR Code 即可預覽。
+
+## 📂 專案結構 (Project Structure)
+
+```text
+AIFinanceApp/
+├── app/                 # Expo Router 頁面路由
+│   ├── (tabs)/          # 底部導航頁籤 (index, budget, planning, analysis, settings)
+│   └── _layout.tsx      # 全域佈局設定
+├── src/
+│   ├── components/      # 可重用 UI 元件 (按功能分類)
+│   │   ├── transaction/ # 記帳相關元件
+│   │   ├── common/      # 通用元件
+│   │   └── ...
+│   ├── services/        # 外部服務與資料庫邏輯
+│   │   ├── database.ts  # SQLite 資料庫操作
+│   │   ├── firebaseConfig.ts # Firebase 設定
+│   │   └── sync.ts      # 雲端同步邏輯
+│   ├── utils/           # 工具函式 (格式化、儲存輔助)
+│   └── types.ts         # TypeScript 型別定義
+├── assets/              # 靜態資源 (圖片、字型)
+├── .cursorrules         # AI 開發準則
+└── package.json         # 專案設定與相依套件
+```
+
+## 📄 授權 (License)
+
+本專案採用 [MIT License](LICENSE) 授權。
