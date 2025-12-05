@@ -1,20 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TransactionType } from '@/src/types';
 
 const CATEGORIES_KEY = '@finance_categories';
 
 // 預設分類
 const defaultCategories = {
-    expense: [
+    [TransactionType.EXPENSE]: [
         '餐飲', '交通', '服飾', '居住', '購物', '醫療', '保險', '教育', '娛樂', '旅遊', '運動'
     ],
-    income: [
+    [TransactionType.INCOME]: [
         '薪水', '津貼', '兼職', '接案', '股利', '利息', '資本利得', '租金', '稿費', '版稅', '禮金', '退稅', '補助'
     ],
 };
 
 export interface Categories {
-    expense: string[];
-    income: string[];
+    [TransactionType.EXPENSE]: string[];
+    [TransactionType.INCOME]: string[];
 }
 
 /**
@@ -51,7 +52,7 @@ export const saveCategories = async (categories: Categories): Promise<void> => {
  * 新增類別
  */
 export const addCategory = async (
-    type: 'income' | 'expense',
+    type: TransactionType.INCOME | TransactionType.EXPENSE,
     name: string
 ): Promise<Categories> => {
     const categories = await loadCategories();
@@ -66,7 +67,7 @@ export const addCategory = async (
  * 刪除類別
  */
 export const deleteCategory = async (
-    type: 'income' | 'expense',
+    type: TransactionType.INCOME | TransactionType.EXPENSE,
     name: string
 ): Promise<Categories> => {
     const categories = await loadCategories();
@@ -79,7 +80,7 @@ export const deleteCategory = async (
  * 移動類別順序
  */
 export const moveCategory = async (
-    type: 'income' | 'expense',
+    type: TransactionType.INCOME | TransactionType.EXPENSE,
     index: number,
     direction: 'up' | 'down'
 ): Promise<Categories> => {

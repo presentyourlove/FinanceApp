@@ -21,12 +21,12 @@ import { useFocusEffect } from 'expo-router';
 import { useTheme } from '@/src/context/ThemeContext';
 import { dbOperations } from '@/src/services/database';
 import * as CategoryStorage from '@/src/utils/categoryStorage';
-import { Account, Transaction } from '@/src/types';
+import { Account, Transaction, TransactionType } from '@/src/types';
 
 import TransferModal from '@/src/components/transaction/TransferModal';
 import AccountSelectModal from '@/src/components/transaction/AccountSelectModal';
 import EditTransferModal from '@/src/components/transaction/EditTransferModal';
-import SettingsModal from '@/src/components/transaction/SettingsModal';
+import SettingsModal from '@/src/components/settings/SettingsModal';
 
 const defaultCategories = {
   expense: [
@@ -155,7 +155,7 @@ export default function TransactionScreen() {
     }
   }, [selectedAccountId]);
 
-  const handleTransaction = async (type: 'income' | 'expense') => {
+  const handleTransaction = async (type: TransactionType) => {
     const amount = parseFloat(amountInput);
     if (isNaN(amount) || amount <= 0) return Alert.alert("無效輸入", "請輸入有效的正數金額。");
     if (selectedAccountId === undefined) return Alert.alert("錯誤", "請先選擇一個帳本。");
@@ -163,14 +163,14 @@ export default function TransactionScreen() {
     try {
       const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
       if (!currentAcc) throw new Error("Account not found.");
-      const newBalance = type === 'income' ? currentAcc.currentBalance + amount : currentAcc.currentBalance - amount;
+      const newBalance = type === TransactionType.INCOME ? currentAcc.currentBalance + amount : currentAcc.currentBalance - amount;
       await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-      await dbOperations.addTransactionDB({ amount, type, date: transactionDate, description: descriptionInput || (type === 'income' ? '無備註收入' : '無備註支出'), accountId: selectedAccountId });
+      await dbOperations.addTransactionDB({ amount, type, date: transactionDate, description: descriptionInput || (type === TransactionType.INCOME ? '無備註收入' : '無備註支出'), accountId: selectedAccountId });
       await refreshData();
       setAmountInput('');
       setDescriptionInput('');
       Keyboard.dismiss();
-      Alert.alert("成功", `${type === 'income' ? '收入' : '支出'} NT$ ${amount.toFixed(2)} 已記錄!`);
+      Alert.alert("成功", `${type === TransactionType.INCOME ? '收入' : '支出'} NT$ ${amount.toFixed(2)} 已記錄!`);
     } catch (error) {
       Alert.alert("交易失敗", "處理交易時發生錯誤。");
       console.error("Transaction failed:", error);
@@ -187,13 +187,7 @@ export default function TransactionScreen() {
       if (!sourceAcc || !targetAcc) throw new Error("Source or Target account not found.");
       if (sourceAcc.currentBalance < amount) return Alert.alert("餘額不足", "轉出帳本餘額不足。");
 
-      const newSourceBalance = sourceAcc.currentBalance - amount;
-      const newTargetBalance = targetAcc.currentBalance + amount;
-      const now = new Date();
-      await dbOperations.updateAccountBalanceDB(sourceId, newSourceBalance);
-      await dbOperations.updateAccountBalanceDB(targetId, newTargetBalance);
-      await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉出至 ${targetAcc.name}`, accountId: sourceId, targetAccountId: targetId });
-      await dbOperations.addTransactionDB({ amount, type: 'transfer', date: now, description: `轉入自 ${sourceAcc.name}`, accountId: targetId, targetAccountId: sourceId });
+      await dbOperations.performTransfer(sourceId, targetId, amount, new Date(), `轉帳: ${sourceAcc.name} -> ${targetAcc.name}`);
 
       const loadedAccounts = await dbOperations.getAccounts();
       setAccounts(loadedAccounts);
@@ -205,18 +199,26 @@ export default function TransactionScreen() {
     }
   };
 
-  const filterTransactions = useCallback(() => {
-    if (!selectedAccountId) return [];
-    const filtered = transactions.filter(t => t.accountId === selectedAccountId || (t.type === 'transfer' && t.targetAccountId === selectedAccountId));
+  const filterTransactions = () => {
+    if (selectedAccountId === undefined) return [];
+    let filtered = transactions.filter(t => t.accountId === selectedAccountId || (t.type === TransactionType.TRANSFER && t.targetAccountId === selectedAccountId));
+
     const now = new Date();
-    if (filterType === 'day') return filtered.filter(t => new Date(t.date).toDateString() === now.toDateString()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    if (filterType === 'month') return filtered.filter(t => { const d = new Date(t.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    if (filterType === 'year') return filtered.filter(t => new Date(t.date).getFullYear() === now.getFullYear()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (filterType === 'day') {
+      filtered = filtered.filter(t => new Date(t.date).toDateString() === now.toDateString());
+    } else if (filterType === 'month') {
+      filtered = filtered.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (filterType === 'year') {
+      filtered = filtered.filter(t => new Date(t.date).getFullYear() === now.getFullYear());
+    }
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, selectedAccountId, filterType]);
+  };
 
   const openEditModal = (transaction: Transaction) => {
-    if (transaction.type === 'transfer') return Alert.alert("提示", "轉帳記錄目前不支援直接編輯，請刪除後重新建立。");
+    if (transaction.type === TransactionType.TRANSFER) return Alert.alert("提示", "轉帳記錄目前不支援直接編輯，請刪除後重新建立。");
     setEditingTransaction(transaction);
     setEditAmount(transaction.amount.toString());
     setEditDescription(transaction.description);
@@ -230,75 +232,95 @@ export default function TransactionScreen() {
     setEditTransferFromAccount(transaction.accountId);
     setEditTransferToAccount(transaction.targetAccountId);
     setEditTransferDate(new Date(transaction.date));
-    setEditTransferDescription(transaction.description || '');
+    setEditTransferDescription(transaction.description);
     setEditTransferModalVisible(true);
   };
 
   const handleUpdateTransfer = async () => {
     if (!editingTransfer || !editTransferFromAccount || !editTransferToAccount) return;
     const amount = parseFloat(editTransferAmount);
-    if (isNaN(amount) || amount <= 0) return Alert.alert('錯誤', '請輸入有效的金額');
-    if (editTransferFromAccount === editTransferToAccount) return Alert.alert('錯誤', '轉出和轉入帳戶不能相同');
+    if (isNaN(amount) || amount <= 0) return Alert.alert("錯誤", "請輸入有效金額");
 
     try {
-      await dbOperations.updateTransfer(editingTransfer.id, editingTransfer.accountId, editingTransfer.targetAccountId!, editingTransfer.amount, editTransferFromAccount, editTransferToAccount, amount, editTransferDate, editTransferDescription);
-      Alert.alert('成功', '轉帳記錄已更新');
-      setEditTransferModalVisible(false);
+      await dbOperations.updateTransfer(
+        editingTransfer.id,
+        editingTransfer.accountId,
+        editingTransfer.targetAccountId!,
+        editingTransfer.amount,
+        editTransferFromAccount,
+        editTransferToAccount,
+        amount,
+        editTransferDate,
+        editTransferDescription
+      );
       await refreshData();
+      setEditTransferModalVisible(false);
+      Alert.alert("成功", "轉帳記錄已更新");
     } catch (error) {
-      console.error('更新轉帳失敗:', error);
-      Alert.alert('錯誤', '更新轉帳記錄失敗');
+      console.error("Update transfer failed:", error);
+      Alert.alert("錯誤", "更新轉帳失敗");
     }
   };
 
   const handleUpdateTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
     const newAmount = parseFloat(editAmount);
-    if (isNaN(newAmount) || newAmount <= 0) return Alert.alert("錯誤", "請輸入有效金額");
+    if (isNaN(newAmount) || newAmount <= 0) return Alert.alert("無效輸入", "請輸入有效的正數金額。");
 
     try {
       const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
-      if (!currentAcc) throw new Error("Account not found");
+      if (!currentAcc) throw new Error("Account not found.");
 
       let revertedBalance = currentAcc.currentBalance;
-      revertedBalance += editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount;
-      const newBalance = revertedBalance + (editingTransaction.type === 'income' ? newAmount : -newAmount);
+      revertedBalance += editingTransaction.type === TransactionType.INCOME ? -editingTransaction.amount : editingTransaction.amount;
+
+      const newBalance = revertedBalance + (editingTransaction.type === TransactionType.INCOME ? newAmount : -newAmount);
 
       await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
       await dbOperations.updateTransactionDB(editingTransaction.id, newAmount, editingTransaction.type, editDate, editDescription);
 
-      setEditModalVisible(false);
       await refreshData();
-      Alert.alert("成功", "交易已更新");
+      setEditModalVisible(false);
+      Alert.alert("成功", "交易已更新!");
     } catch (error) {
-      console.error(error);
-      Alert.alert("錯誤", "更新失敗");
+      Alert.alert("更新失敗", "處理交易更新時發生錯誤。");
+      console.error("Update transaction failed:", error);
     }
   };
 
   const handleDeleteTransaction = async () => {
     if (!editingTransaction || !selectedAccountId) return;
-    Alert.alert("確認刪除", "確定要刪除這筆交易嗎？", [{ text: "取消", style: "cancel" }, {
-      text: "刪除", style: "destructive", onPress: async () => {
-        try {
-          const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
-          if (!currentAcc) throw new Error("Account not found");
-          const newBalance = currentAcc.currentBalance + (editingTransaction.type === 'income' ? -editingTransaction.amount : editingTransaction.amount);
-          await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
-          await dbOperations.deleteTransactionDB(editingTransaction.id);
-          setEditModalVisible(false);
-          await refreshData();
-          Alert.alert("成功", "交易已刪除");
-        } catch (error) {
-          console.error(error);
-          Alert.alert("錯誤", "刪除失敗");
+    Alert.alert(
+      "刪除交易",
+      "確定要刪除這筆交易嗎？",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "刪除",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const currentAcc = accounts.find(acc => acc.id === selectedAccountId);
+              if (currentAcc) {
+                const newBalance = currentAcc.currentBalance + (editingTransaction.type === TransactionType.INCOME ? -editingTransaction.amount : editingTransaction.amount);
+                await dbOperations.updateAccountBalanceDB(selectedAccountId, newBalance);
+              }
+              await dbOperations.deleteTransactionDB(editingTransaction.id);
+              await refreshData();
+              setEditModalVisible(false);
+              Alert.alert("成功", "交易已刪除!");
+            } catch (error) {
+              Alert.alert("刪除失敗", "處理交易刪除時發生錯誤。");
+              console.error("Delete transaction failed:", error);
+            }
+          }
         }
-      }
-    }]);
+      ]
+    );
   };
 
   const renderItem = ({ item }: { item: Transaction }) => {
-    const isTransfer = item.type === 'transfer';
+    const isTransfer = item.type === TransactionType.TRANSFER;
     const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
     const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || '未知帳本';
 
@@ -311,10 +333,10 @@ export default function TransactionScreen() {
         amountSign = '+';
         descriptionText = `轉入自 ${sourceAccountName}`;
       }
-      amountColor = '#FF9500';
+      amountColor = colors.transfer;
     } else {
-      amountSign = item.type === 'income' ? '+' : '-';
-      amountColor = item.type === 'income' ? '#4CD964' : '#FF3B30';
+      amountSign = item.type === TransactionType.INCOME ? '+' : '-';
+      amountColor = item.type === TransactionType.INCOME ? colors.income : colors.expense;
       descriptionText = item.description;
     }
 
@@ -344,7 +366,7 @@ export default function TransactionScreen() {
           <Text style={styles.pickerDisplayText}>{accounts.find(acc => acc.id === selectedAccountId)?.name || '選擇帳本'}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>當前帳本餘額</Text>
-        <Text style={[styles.balanceText, { color: currentBalance >= 0 ? '#007AFF' : '#FF3B30' }]} numberOfLines={1} adjustsFontSizeToFit={true}>
+        <Text style={[styles.balanceText, { color: currentBalance >= 0 ? colors.tint : colors.expense }]} numberOfLines={1} adjustsFontSizeToFit={true}>
           {`${accounts.find(acc => acc.id === selectedAccountId)?.currency || 'TWD'} ${currentBalance.toFixed(2)}`}
         </Text>
       </View>
@@ -364,8 +386,8 @@ export default function TransactionScreen() {
         <TextInput style={[styles.input, { width: '90%', marginBottom: 10 }]} placeholder="請輸入金額 (例如: 500)" placeholderTextColor={colors.subtleText} keyboardType="numeric" value={amountInput} onChangeText={setAmountInput} />
         <TextInput style={[styles.input, { width: '90%', marginBottom: 15 }]} placeholder="請輸入類別 (例如: 午餐、薪水)" placeholderTextColor={colors.subtleText} value={descriptionInput} onChangeText={setDescriptionInput} />
         <View style={styles.buttonContainer}>
-          <View style={styles.transactionRow}><TouchableOpacity style={[styles.mainButton, styles.incomeButton, styles.autoWidthButton]} onPress={() => handleTransaction('income')}><Text style={styles.buttonText}>收入 (＋)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.income.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
-          <View style={[styles.transactionRow, { marginTop: 8 }]}><TouchableOpacity style={[styles.mainButton, styles.expenseButton, styles.autoWidthButton]} onPress={() => handleTransaction('expense')}><Text style={styles.buttonText}>支出 (－)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.expense.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
+          <View style={styles.transactionRow}><TouchableOpacity style={[styles.mainButton, styles.incomeButton, styles.autoWidthButton]} onPress={() => handleTransaction(TransactionType.INCOME)}><Text style={styles.buttonText}>收入 (＋)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.income.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
+          <View style={[styles.transactionRow, { marginTop: 8 }]}><TouchableOpacity style={[styles.mainButton, styles.expenseButton, styles.autoWidthButton]} onPress={() => handleTransaction(TransactionType.EXPENSE)}><Text style={styles.buttonText}>支出 (－)</Text></TouchableOpacity><View style={styles.categoryZone}>{categories.expense.map((category, index) => (<TouchableOpacity key={index} style={styles.categoryButton} onPress={() => setDescriptionInput(category)}><Text style={styles.categoryText}>{category}</Text></TouchableOpacity>))}</View></View>
           <TouchableOpacity style={[styles.mainButton, styles.transferButton, { width: '100%', alignSelf: 'center', marginTop: 15, height: 45 }]} onPress={() => setTransferModalVisible(true)}><Text style={styles.buttonText}>轉帳</Text></TouchableOpacity>
         </View>
       </View>
@@ -384,14 +406,14 @@ export default function TransactionScreen() {
     <View style={{ width: '100%', maxHeight: 300 }}>
       <Text style={styles.modalTitle}>請選擇類別</Text>
       <ScrollView style={{ width: '100%' }}>
-        {(editingTransaction?.type === 'income' ? categories.income : categories.expense).map((cat) => (
+        {(editingTransaction?.type === TransactionType.INCOME ? categories.income : categories.expense).map((cat) => (
           <TouchableOpacity key={cat} style={styles.modalListItem} onPress={() => { setEditDescription(cat); setEditSelectionMode('none'); }}>
             <Text style={styles.inputText}>{cat}</Text>
             {editDescription === cat && <Ionicons name="checkmark" size={20} color={colors.tint} />}
           </TouchableOpacity>
         ))}
       </ScrollView>
-      <TouchableOpacity style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: '#FF3B30' }]} onPress={() => setEditSelectionMode('none')}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
+      <TouchableOpacity style={[styles.button, styles.cancelButton, { width: '100%', marginTop: 10, backgroundColor: colors.expense }]} onPress={() => setEditSelectionMode('none')}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
     </View>
   );
 
@@ -413,7 +435,7 @@ export default function TransactionScreen() {
       </TouchableOpacity>
       <View style={styles.modalButtons}>
         <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setEditModalVisible(false)}><Text style={styles.buttonText}>取消</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30' }]} onPress={handleDeleteTransaction}><Text style={styles.buttonText}>刪除</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.expense }]} onPress={handleDeleteTransaction}><Text style={styles.buttonText}>刪除</Text></TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleUpdateTransaction}><Text style={styles.buttonText}>儲存</Text></TouchableOpacity>
       </View>
     </>
@@ -537,13 +559,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginRight: 10,
   },
   incomeButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.income,
   },
   expenseButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.expense,
   },
   transferButton: {
-    backgroundColor: '#FF9500',
+    backgroundColor: colors.transfer,
   },
   categoryZone: {
     flex: 2,
@@ -593,7 +615,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.inputBackground,
   },
   filterButtonSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.tint,
   },
   filterButtonText: {
     fontSize: 14,

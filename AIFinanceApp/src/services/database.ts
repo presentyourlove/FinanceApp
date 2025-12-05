@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Account, Transaction, Budget, Goal, Investment } from '@/src/types';
+import { Account, Transaction, Budget, Goal, Investment, TransactionType } from '@/src/types';
 
 // 建立資料庫連線 (同步/非同步混合處理)
 // Expo SQLite 新版 API 行為：openDatabaseSync
@@ -235,7 +235,7 @@ export const addTransactionDB = async (t: Omit<Transaction, 'id' | 'date'> & { d
 /**
  * 更新交易記錄
  */
-export const updateTransactionDB = async (id: number, amount: number, type: 'income' | 'expense' | 'transfer', date: Date, description: string) => {
+export const updateTransactionDB = async (id: number, amount: number, type: TransactionType, date: Date, description: string) => {
   const dateString = date.toISOString();
   runSqlSync(
     `UPDATE transactions SET amount = ?, type = ?, date = ?, description = ? WHERE id = ?;`,
@@ -260,7 +260,7 @@ export const performTransfer = async (fromAccountId: number, toAccountId: number
   // 1. 新增轉帳交易
   runSqlSync(
     `INSERT INTO transactions (amount, type, date, description, accountId, targetAccountId) 
-     VALUES (?, 'transfer', ?, ?, ?, ?);`,
+     VALUES (?, '${TransactionType.TRANSFER}', ?, ?, ?, ?);`,
     [amount, dateString, description, fromAccountId, toAccountId]
   );
 
@@ -506,7 +506,7 @@ export const getCategorySpending = async (year: number, month: number): Promise<
   const rows = getRowsSync(
     `SELECT description as category, SUM(amount) as total 
      FROM transactions 
-     WHERE type = 'expense' AND strftime('%Y-%m', date) = ?
+     WHERE type = '${TransactionType.EXPENSE}' AND strftime('%Y-%m', date) = ?
      GROUP BY description;`,
     [targetMonthStr]
   ) as any[];
@@ -525,7 +525,7 @@ export const getCategorySpending = async (year: number, month: number): Promise<
  */
 export const getDistinctCategories = async (): Promise<string[]> => {
   const rows = getRowsSync(
-    `SELECT DISTINCT description FROM transactions WHERE type = 'expense' ORDER BY description;`
+    `SELECT DISTINCT description FROM transactions WHERE type = '${TransactionType.EXPENSE}' ORDER BY description;`
   ) as any[];
   return rows.map((row: any) => row.description).filter((d: string) => d);
 };
@@ -556,7 +556,7 @@ export const addInvestment = async (
     if (totalExpense > 0) {
       const transId = await addTransactionDB({
         amount: totalExpense,
-        type: 'expense',
+        type: TransactionType.EXPENSE,
         date: new Date(date),
         description: `投資: ${name}`,
         accountId: syncOptions.sourceAccountId,
@@ -653,7 +653,7 @@ export const processInvestmentAction = async (
   if (syncOptions.syncToTransaction && syncOptions.targetAccountId && data.returnAmount && data.returnAmount > 0) {
     await addTransactionDB({
       amount: data.returnAmount,
-      type: 'income',
+      type: TransactionType.INCOME,
       date: new Date(data.date),
       description: `投資回收: ${inv.name} (${actionType})`,
       accountId: syncOptions.targetAccountId,

@@ -236,7 +236,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20 },
     button: { borderRadius: 10, padding: 10, elevation: 2, minWidth: 100, alignItems: 'center' },
     cancelButton: { backgroundColor: "#8E8E93" },
-    confirmButton: { backgroundColor: "#007AFF" },
+    confirmButton: { backgroundColor: colors.tint },
     buttonText: { color: "white", fontWeight: "bold", textAlign: "center" },
     updatePriceButton: { backgroundColor: colors.accent, padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
     updatePriceButtonText: { color: '#fff', fontWeight: 'bold' }

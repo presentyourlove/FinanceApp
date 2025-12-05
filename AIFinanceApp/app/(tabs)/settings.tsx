@@ -18,6 +18,7 @@ import { dbOperations } from '@/src/services/database';
 import * as CategoryStorage from '@/src/utils/categoryStorage';
 import * as CurrencyStorage from '@/src/utils/currencyStorage';
 import { ThemeType } from '@/src/utils/themeStorage';
+import { TransactionType } from '@/src/types';
 import SwipeView from '@/src/components/common/SwipeView';
 import SyncSettingsView from '@/src/components/settings/SyncSettingsView';
 
@@ -39,7 +40,7 @@ export default function SettingsScreen() {
     const [accounts, setAccounts] = useState<Account[]>([]);
 
     const [newCat, setNewCat] = useState('');
-    const [catType, setCatType] = useState<'income' | 'expense'>('expense');
+    const [catType, setCatType] = useState<TransactionType.INCOME | TransactionType.EXPENSE>(TransactionType.EXPENSE);
 
     // manageMode now includes 'main' for the list view
     const [manageMode, setManageMode] = useState<'main' | 'category' | 'account' | 'currency' | 'theme' | 'sync'>('main');
@@ -86,20 +87,20 @@ export default function SettingsScreen() {
         }, [])
     );
 
-    const handleAddCategory = async (type: 'income' | 'expense', name: string) => {
+    const handleAddCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, name: string) => {
         if (!name) return;
         const updatedCategories = await CategoryStorage.addCategory(type, name);
         setCategories(updatedCategories);
         setNewCat('');
-        Alert.alert("成功", `備註「${name}」已加入${type === 'income' ? '收入' : '支出'} 列表！`);
+        Alert.alert("成功", `備註「${name}」已加入${type === TransactionType.INCOME ? '收入' : '支出'} 列表！`);
     };
 
-    const handleDeleteCategory = async (type: 'income' | 'expense', category: string) => {
+    const handleDeleteCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, category: string) => {
         const updatedCategories = await CategoryStorage.deleteCategory(type, category);
         setCategories(updatedCategories);
     };
 
-    const moveCategory = async (type: 'income' | 'expense', index: number, direction: 'up' | 'down') => {
+    const moveCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, index: number, direction: 'up' | 'down') => {
         const updatedCategories = await CategoryStorage.moveCategory(type, index, direction);
         setCategories(updatedCategories);
     };
@@ -308,16 +309,16 @@ export default function SettingsScreen() {
             <ScrollView style={{ flex: 1 }}>
                 <View style={{ paddingHorizontal: 15 }}>
                     <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-                        <TouchableOpacity onPress={() => setCatType('expense')} style={[styles.bigButton, { backgroundColor: catType === 'expense' ? '#FF3B30' : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== 'expense' ? 1 : 0, borderColor: colors.borderColor }]}>
-                            <Text style={[styles.buttonText, { color: catType === 'expense' ? '#fff' : colors.text }]}>支出</Text>
+                        <TouchableOpacity onPress={() => setCatType(TransactionType.EXPENSE)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.EXPENSE ? colors.expense : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== TransactionType.EXPENSE ? 1 : 0, borderColor: colors.borderColor }]}>
+                            <Text style={[styles.buttonText, { color: catType === TransactionType.EXPENSE ? '#fff' : colors.text }]}>支出</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setCatType('income')} style={[styles.bigButton, { backgroundColor: catType === 'income' ? '#4CD964' : colors.card, flex: 1, borderWidth: catType !== 'income' ? 1 : 0, borderColor: colors.borderColor }]}>
-                            <Text style={[styles.buttonText, { color: catType === 'income' ? '#fff' : colors.text }]}>收入</Text>
+                        <TouchableOpacity onPress={() => setCatType(TransactionType.INCOME)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.INCOME ? colors.income : colors.card, flex: 1, borderWidth: catType !== TransactionType.INCOME ? 1 : 0, borderColor: colors.borderColor }]}>
+                            <Text style={[styles.buttonText, { color: catType === TransactionType.INCOME ? '#fff' : colors.text }]}>收入</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <Text style={styles.subtitle}>新增{catType === 'income' ? '收入' : '支出'}分類</Text>
+                <Text style={styles.subtitle}>新增{catType === TransactionType.INCOME ? '收入' : '支出'}分類</Text>
                 <View style={styles.card}>
                     <View style={{ flexDirection: 'row' }}>
                         <TextInput
@@ -333,7 +334,7 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                <Text style={styles.subtitle}>現有{catType === 'income' ? '收入' : '支出'}分類</Text>
+                <Text style={styles.subtitle}>現有{catType === TransactionType.INCOME ? '收入' : '支出'}分類</Text>
                 <View style={styles.card}>
                     {categories[catType]?.map((cat: string, index: number) => (
                         <View key={index} style={styles.settingListItem}>
@@ -341,7 +342,7 @@ export default function SettingsScreen() {
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <TouchableOpacity onPress={() => moveCategory(catType, index, 'up')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-up" size={20} color={colors.subtleText} /></TouchableOpacity>
                                 <TouchableOpacity onPress={() => moveCategory(catType, index, 'down')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-down" size={20} color={colors.subtleText} /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDeleteCategory(catType, cat)} style={{ paddingHorizontal: 5 }}><Ionicons name="trash" size={20} color="#FF3B30" /></TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteCategory(catType, cat)} style={{ paddingHorizontal: 5 }}><Ionicons name="trash" size={20} color={colors.expense} /></TouchableOpacity>
                             </View>
                         </View>
                     ))}
@@ -402,7 +403,7 @@ export default function SettingsScreen() {
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.button, { backgroundColor: '#4CD964', marginTop: 10 }]}
+                        style={[styles.button, { backgroundColor: colors.income, marginTop: 10 }]}
                         onPress={() => {
                             if (newAccName && newAccBalance) {
                                 handleAddAccount(newAccName, parseFloat(newAccBalance), newAccCurrency);
@@ -421,7 +422,7 @@ export default function SettingsScreen() {
                         <View key={acc.id} style={styles.settingListItem}>
                             <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
                             <TouchableOpacity onPress={() => handleDeleteAccount(acc.id)}>
-                                <Ionicons name="trash" size={20} color="#FF3B30" />
+                                <Ionicons name="trash" size={20} color={colors.expense} />
                             </TouchableOpacity>
                         </View>
                     ))}

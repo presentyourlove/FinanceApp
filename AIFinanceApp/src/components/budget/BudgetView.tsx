@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { dbOperations, Budget } from '@/src/services/database';
+import { TransactionType } from '@/src/types';
 import { useFocusEffect } from 'expo-router';
 import * as CategoryStorage from '@/src/utils/categoryStorage';
 import * as CurrencyStorage from '@/src/utils/currencyStorage';
@@ -77,7 +78,7 @@ export default function BudgetView({ style }: { style?: any }) {
                 else startDate = startOfYearDate;
 
                 transactions.forEach(t => {
-                    if (t.type === 'expense' && (t.description?.startsWith(budget.category))) {
+                    if (t.type === TransactionType.EXPENSE && (t.description?.startsWith(budget.category))) {
                         const tDate = new Date(t.date);
                         if (tDate >= startDate && tDate <= now) {
                             // Convert amount: Acc -> Main -> Budget

@@ -14,12 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
 import { useTheme } from '@/src/context/ThemeContext';
 import * as CurrencyStorage from '@/src/utils/currencyStorage';
+import { TransactionType } from '@/src/types';
 
 type AnalysisPeriod = 'month' | 'year';
-
-const pieChartColors = [
-    '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6', '#FF2D55'
-];
 
 function hexToRgb(hex: string) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -86,9 +83,9 @@ export default function AnalysisScreen() {
                         // AmountMain = AmountAccount / Rate
                         const amountInMain = t.amount / accRate;
 
-                        if (t.type === 'income') {
+                        if (t.type === TransactionType.INCOME) {
                             income += amountInMain;
-                        } else if (t.type === 'expense') {
+                        } else if (t.type === TransactionType.EXPENSE) {
                             expense += amountInMain;
                             const cat = t.description?.split(' ')[0] || '其他';
                             categoryMap.set(cat, (categoryMap.get(cat) || 0) + amountInMain);
@@ -103,7 +100,7 @@ export default function AnalysisScreen() {
                         .map(([category, amount], index) => ({
                             name: category,
                             amount: Math.round(amount), // Round for display
-                            color: pieChartColors[index % pieChartColors.length],
+                            color: colors.charts[index % colors.charts.length],
                             legendFontColor: colors.subtleText,
                             legendFontSize: 12
                         }));
@@ -155,7 +152,7 @@ export default function AnalysisScreen() {
                     <Text style={styles.sectionTitle}>理財建議</Text>
                     <View style={styles.adviceCard}>
                         {advice.map((item, index) => (
-                            <View key={index} style={styles.adviceItem}><Ionicons name="bulb-outline" size={24} color="#FFD60A" style={{ marginRight: 10 }} /><Text style={styles.adviceText}>{item}</Text></View>
+                            <View key={index} style={styles.adviceItem}><Ionicons name="bulb-outline" size={24} color={colors.charts[2]} style={{ marginRight: 10 }} /><Text style={styles.adviceText}>{item}</Text></View>
                         ))}
                     </View>
                 </View>
@@ -191,8 +188,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     overviewContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
     card: { flex: 0.48, padding: 20, borderRadius: 16, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card },
     cardLabel: { fontSize: 14, color: colors.subtleText, marginBottom: 5 },
-    cardValueIncome: { fontSize: 20, fontWeight: 'bold', color: '#4CD964' },
-    cardValueExpense: { fontSize: 20, fontWeight: 'bold', color: '#FF3B30' },
+    cardValueIncome: { fontSize: 20, fontWeight: 'bold', color: colors.income },
+    cardValueExpense: { fontSize: 20, fontWeight: 'bold', color: colors.expense },
     sectionContainer: { marginBottom: 20 },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color: colors.text },
     chartCard: { backgroundColor: colors.card, borderRadius: 16, padding: 20, alignItems: 'center' },
@@ -202,6 +199,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     categoryCard: { backgroundColor: colors.card, borderRadius: 16, padding: 20 },
     categoryItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
     categoryName: { fontSize: 16, color: colors.text },
-    categoryAmount: { fontSize: 16, fontWeight: 'bold', color: '#FF3B30' },
+    categoryAmount: { fontSize: 16, fontWeight: 'bold', color: colors.expense },
     emptyText: { textAlign: 'center', color: colors.subtleText, padding: 10 },
 });

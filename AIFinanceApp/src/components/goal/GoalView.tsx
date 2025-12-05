@@ -19,6 +19,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { dbOperations, Goal } from '@/src/services/database';
+import { TransactionType } from '@/src/types';
 import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -212,7 +213,7 @@ export default function GoalView({ style }: { style?: any }) {
                     // Expense (From Account -> N/A)
                     await dbOperations.addTransactionDB({
                         amount,
-                        type: 'expense',
+                        type: TransactionType.EXPENSE,
                         date,
                         description,
                         accountId: selectedFromAccount
@@ -226,7 +227,7 @@ export default function GoalView({ style }: { style?: any }) {
                     // Income (N/A -> To Account)
                     await dbOperations.addTransactionDB({
                         amount,
-                        type: 'income',
+                        type: TransactionType.INCOME,
                         date,
                         description,
                         accountId: selectedToAccount

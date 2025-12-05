@@ -6,10 +6,16 @@ export interface Account {
     currency: string;
 }
 
+export enum TransactionType {
+    INCOME = 'income',
+    EXPENSE = 'expense',
+    TRANSFER = 'transfer',
+}
+
 export interface Transaction {
     id: number;
     amount: number;
-    type: 'income' | 'expense' | 'transfer';
+    type: TransactionType;
     date: string; // ISO string format
     description: string;
     accountId: number;

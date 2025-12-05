@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useColorScheme } from 'react-native';
-import Colors from '@/constants/Colors';
+import Colors from '@/constants/colors';
 import { loadTheme, saveTheme, ThemeType } from '@/src/utils/themeStorage';
 
 interface ThemeContextType {

@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
-import InvestView from '@/src/components/InvestView';
-import GoalView from '@/src/components/GoalView';
+import InvestView from '@/src/components/investment/InvestView';
+import GoalView from '@/src/components/goal/GoalView';
 
 const { width } = Dimensions.get('window');
 
