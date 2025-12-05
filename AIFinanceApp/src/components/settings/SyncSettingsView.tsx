@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/src/services/auth';
 import { useSync } from '@/src/hooks/useSync';
 import { useTheme } from '@/src/context/ThemeContext';
+import { hasFirebaseConfig } from '@/src/services/firebaseConfig';
 
 interface SyncSettingsViewProps {
     onRefreshData?: () => void;
@@ -53,7 +54,20 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
         <View style={styles.container}>
             <Text style={styles.subtitle}>雲端同步</Text>
             <View style={styles.contentContainer}>
-                {user ? (
+                {!hasFirebaseConfig ? (
+                    <View style={styles.card}>
+                        <Text style={styles.warningTitle}>⚠️ 雲端同步功能未啟用</Text>
+                        <Text style={styles.description}>
+                            目前 Firebase 環境變數尚未設定,無法使用雲端同步功能。
+                        </Text>
+                        <Text style={styles.description}>
+                            如需啟用此功能,請建立 .env 檔案並設定 Firebase 設定。
+                        </Text>
+                        <Text style={[styles.description, { fontWeight: 'bold', marginTop: 10 }]}>
+                            💡 提示:目前您的資料僅儲存在本機裝置上。
+                        </Text>
+                    </View>
+                ) : user ? (
                     <View style={styles.card}>
                         <Text style={styles.userInfo}>已登入: {user.email}</Text>
                         <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={signOut} disabled={loading}>
@@ -79,7 +93,7 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
                             onPress={() => {
                                 Alert.alert(
                                     '確認還原',
-                                    '這將會覆蓋您目前手機上的所有資料，確定要還原嗎？',
+                                    '這將會覆蓋您目前手機上的所有資料,確定要還原嗎?',
                                     [
                                         { text: '取消', style: 'cancel' },
                                         {
@@ -98,7 +112,7 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
                 ) : (
                     <View style={styles.card}>
                         <Text style={styles.description}>
-                            登入帳號以啟用雲端同步功能，防止資料遺失。
+                            登入帳號以啟用雲端同步功能,防止資料遺失。
                         </Text>
 
                         <TextInput
@@ -157,6 +171,12 @@ const getStyles = (colors: any) => StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 5,
         elevation: 3
+    },
+    warningTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#FF9500',
+        marginBottom: 15
     },
     userInfo: {
         marginBottom: 15,

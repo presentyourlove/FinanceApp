@@ -26,7 +26,7 @@ const palette = {
 };
 
 const tintColorLight = palette.primary;
-const tintColorDark = palette.white;
+const tintColorDark = palette.primary;
 const accentColor = palette.primary;
 
 export default {
