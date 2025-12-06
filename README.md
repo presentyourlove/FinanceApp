@@ -52,8 +52,8 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 1. **複製專案 (Clone Repository)**
 
     ```bash
-    git clone https://github.com/your-username/AIFinanceApp.git
-    cd AIFinanceApp
+    git clone https://github.com/presentyourlove/AIFinanceApp.git
+    cd AIFinanceApp/AIFinanceApp
     ```
 
 2. **安裝相依套件 (Install Dependencies)**
@@ -66,7 +66,7 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 
 3. **設定環境變數 (Environment Variables)**
 
-    請在專案根目錄建立 `.env` 檔案，並填入您的 Firebase 設定：
+    請在 `AIFinanceApp` 目錄下 (與 `package.json` 同層) 建立 `.env` 檔案，並填入您的 Firebase 設定：
 
     ```env
     EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
@@ -85,27 +85,36 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 
     啟動後，使用手機上的 Expo Go App 掃描終端機顯示的 QR Code 即可預覽。
 
+5. **打包應用程式 (Build Application)**
+
+    ```bash
+    npx eas-cli build --platform android --profile apk
+    ```
+
+    打包後，您可以在 `AIFinanceApp` 目錄下找到生成的 APK 檔案。
+
 ## 📂 專案結構 (Project Structure)
 
 ```text
-AIFinanceApp/
-├── app/                 # Expo Router 頁面路由
-│   ├── (tabs)/          # 底部導航頁籤 (index, budget, planning, analysis, settings)
-│   └── _layout.tsx      # 全域佈局設定
-├── src/
-│   ├── components/      # 可重用 UI 元件 (按功能分類)
-│   │   ├── transaction/ # 記帳相關元件
-│   │   ├── common/      # 通用元件
-│   │   └── ...
-│   ├── services/        # 外部服務與資料庫邏輯
-│   │   ├── database.ts  # SQLite 資料庫操作
-│   │   ├── firebaseConfig.ts # Firebase 設定
-│   │   └── sync.ts      # 雲端同步邏輯
-│   ├── utils/           # 工具函式 (格式化、儲存輔助)
-│   └── types.ts         # TypeScript 型別定義
-├── assets/              # 靜態資源 (圖片、字型)
-├── .cursorrules         # AI 開發準則
-└── package.json         # 專案設定與相依套件
+AIFinanceApp/            # 專案根目錄
+├── AIFinanceApp/        # 應用程式原始碼 (Expo Project)
+│   ├── app/             # Expo Router 頁面路由
+│   │   ├── (tabs)/      # 底部導航頁籤 (index, budget, planning, analysis, settings)
+│   │   └── _layout.tsx  # 全域佈局設定
+│   ├── src/
+│   │   ├── components/  # 可重用 UI 元件 (按功能分類)
+│   │   │   ├── transaction/ # 記帳相關元件
+│   │   │   ├── common/  # 通用元件
+│   │   │   └── ...
+│   │   ├── services/    # 外部服務與資料庫邏輯
+│   │   │   ├── database.ts  # SQLite 資料庫操作
+│   │   │   ├── firebaseConfig.ts # Firebase 設定
+│   │   │   └── sync.ts  # 雲端同步邏輯
+│   │   ├── utils/       # 工具函式 (格式化、儲存輔助)
+│   │   └── types.ts     # TypeScript 型別定義
+│   ├── assets/          # 靜態資源 (圖片、字型)
+│   └── package.json     # 專案設定與相依套件
+└── README.md            # 專案說明文件
 ```
 
 ## 📄 授權 (License)
