@@ -6,7 +6,7 @@ module.exports = function (api) {
       ['babel-preset-expo', { jsxRuntime: 'automatic' }],
     ],
     plugins: [
-      // 這裡應該是空的，或者只有您未來需要新增的其他插件
+      'react-native-reanimated/plugin',
     ],
   };
 };

@@ -32,6 +32,29 @@ const getRowsSync = (sql: string, params: any[] = []) => {
 };
 
 // ===================================================
+// Observer Pattern for Data Changes
+// ===================================================
+type DataChangeListener = () => void;
+const listeners: DataChangeListener[] = [];
+
+const addDataChangeListener = (listener: DataChangeListener) => {
+  if (!listeners.includes(listener)) {
+    listeners.push(listener);
+  }
+};
+
+const removeDataChangeListener = (listener: DataChangeListener) => {
+  const index = listeners.indexOf(listener);
+  if (index > -1) {
+    listeners.splice(index, 1);
+  }
+};
+
+const notifyListeners = () => {
+  listeners.forEach(listener => listener());
+};
+
+// ===================================================
 // 1. 初始化資料庫
 // ===================================================
 export const initDatabase = async (skipDefaultData: boolean = false) => {
@@ -215,6 +238,7 @@ export const updateAccountBalanceDB = async (id: number, newBalance: number) => 
     `UPDATE accounts SET currentBalance = ? WHERE id = ?;`,
     [newBalance, id]
   );
+  notifyListeners();
 };
 
 /**
@@ -229,7 +253,9 @@ export const addTransactionDB = async (t: Omit<Transaction, 'id' | 'date'> & { d
     [t.amount, t.type, dateString, t.description, t.accountId, t.targetAccountId]
   );
   // runSync 的結果物件中包含 lastInsertRowId
-  return res && res.lastInsertRowId || Date.now();
+  const result = res && res.lastInsertRowId || Date.now();
+  notifyListeners();
+  return result;
 };
 
 /**
@@ -241,6 +267,7 @@ export const updateTransactionDB = async (id: number, amount: number, type: Tran
     `UPDATE transactions SET amount = ?, type = ?, date = ?, description = ? WHERE id = ?;`,
     [amount, type, dateString, description, id]
   );
+  notifyListeners();
 };
 
 /**
@@ -248,6 +275,7 @@ export const updateTransactionDB = async (id: number, amount: number, type: Tran
  */
 export const deleteTransactionDB = async (id: number) => {
   runSqlSync(`DELETE FROM transactions WHERE id = ?;`, [id]);
+  notifyListeners();
 };
 
 /**
@@ -277,6 +305,7 @@ export const performTransfer = async (fromAccountId: number, toAccountId: number
     const newToBalance = toAccountRows[0].currentBalance + amount;
     runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newToBalance, toAccountId]);
   }
+  notifyListeners();
 };
 
 /**
@@ -326,6 +355,7 @@ export const updateTransfer = async (
     const newBalance = newToRows[0].currentBalance + newAmount;
     runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newBalance, newToAccountId]);
   }
+  notifyListeners();
 };
 
 /**
@@ -401,7 +431,9 @@ export const addAccountDB = async (name: string, initialBalance: number, currenc
     `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
     [name, initialBalance, initialBalance, currency]
   );
-  return res && res.lastInsertRowId || Date.now();
+  const result = res && res.lastInsertRowId || Date.now();
+  notifyListeners();
+  return result;
 };
 
 /**
@@ -424,6 +456,7 @@ export const deleteAccountDB = async (id: number) => {
     `DELETE FROM accounts WHERE id = ?;`,
     [id]
   );
+  notifyListeners();
 };
 
 // --- 預算操作 ---
@@ -444,15 +477,19 @@ export const addBudget = async (category: string, amount: number, period: string
     `INSERT INTO budgets (category, amount, period, currency) VALUES (?, ?, ?, ?);`,
     [category, amount, period, currency]
   );
-  return res && res.lastInsertRowId;
+  const result = res && res.lastInsertRowId;
+  notifyListeners();
+  return result;
 };
 
 export const updateBudget = async (id: number, category: string, amount: number, period: string, currency: string) => {
   runSqlSync(`UPDATE budgets SET category = ?, amount = ?, period = ?, currency = ? WHERE id = ?;`, [category, amount, period, currency, id]);
+  notifyListeners();
 };
 
 export const deleteBudget = async (id: number) => {
   runSqlSync(`DELETE FROM budgets WHERE id = ?;`, [id]);
+  notifyListeners();
 };
 
 // --- 存錢目標操作 ---
@@ -474,11 +511,14 @@ export const addGoal = async (name: string, targetAmount: number, deadline: stri
     `INSERT INTO goals (name, targetAmount, currentAmount, deadline, currency) VALUES (?, ?, 0, ?, ?);`,
     [name, targetAmount, deadline || null, currency]
   );
-  return res && res.lastInsertRowId;
+  const result = res && res.lastInsertRowId;
+  notifyListeners();
+  return result;
 };
 
 export const updateGoalAmount = async (id: number, currentAmount: number) => {
   runSqlSync(`UPDATE goals SET currentAmount = ? WHERE id = ?;`, [currentAmount, id]);
+  notifyListeners();
 };
 
 export const updateGoal = async (id: number, name: string, targetAmount: number, deadline?: string, currency: string = 'TWD') => {
@@ -486,10 +526,12 @@ export const updateGoal = async (id: number, name: string, targetAmount: number,
     `UPDATE goals SET name = ?, targetAmount = ?, deadline = ?, currency = ? WHERE id = ?;`,
     [name, targetAmount, deadline || null, currency, id]
   );
+  notifyListeners();
 };
 
 export const deleteGoal = async (id: number) => {
   runSqlSync(`DELETE FROM goals WHERE id = ?;`, [id]);
+  notifyListeners();
 };
 
 // --- 統計與輔助查詢 ---
@@ -584,7 +626,9 @@ export const addInvestment = async (
       purchaseMethod, notes, syncOptions.sourceAccountId, linkedTransactionId
     ]
   );
-  return res && res.lastInsertRowId;
+  const result = res && res.lastInsertRowId;
+  notifyListeners();
+  return result;
 };
 
 export const getInvestments = async (): Promise<Investment[]> => {
@@ -607,6 +651,7 @@ export const updateInvestment = async (id: number, data: Partial<Investment>) =>
   const values = fields.map(f => (data as any)[f]);
 
   runSqlSync(`UPDATE investments SET ${setClause} WHERE id = ?;`, [...values, id]);
+  notifyListeners();
 };
 
 export const processInvestmentAction = async (
@@ -665,10 +710,12 @@ export const processInvestmentAction = async (
       runSqlSync(`UPDATE accounts SET currentBalance = ? WHERE id = ?;`, [newBalance, syncOptions.targetAccountId]);
     }
   }
+  notifyListeners();
 };
 
 const updateStockPrice = async (name: string, price: number) => {
   runSqlSync(`UPDATE investments SET currentPrice = ? WHERE name = ? AND type = 'stock' AND status = 'active';`, [price, name]);
+  notifyListeners();
 };
 
 // 匯出所有公開操作
@@ -713,6 +760,7 @@ export const dbOperations = {
     runSqlSync(`DROP TABLE IF EXISTS goals;`);
     runSqlSync(`DROP TABLE IF EXISTS investments;`);
     await initDatabase(true);
+    notifyListeners();
   },
   // Backup helpers
   getAllTransactionsDB: async () => {
@@ -777,7 +825,10 @@ export const dbOperations = {
         inv.purchaseMethod, inv.notes, inv.sourceAccountId, inv.linkedTransactionId, inv.status
       ]
     );
-  }
+  },
+  // Observer
+  addDataChangeListener,
+  removeDataChangeListener,
 };
 // Re-export types for convenience
 export type { Account, Transaction, Budget, Goal, Investment } from '@/src/types';

@@ -10,7 +10,8 @@ import {
 import { useAuth } from '@/src/services/auth';
 import { useSync } from '@/src/hooks/useSync';
 import { useTheme } from '@/src/context/ThemeContext';
-import { hasFirebaseConfig } from '@/src/services/firebaseConfig';
+import { hasFirebaseConfig, auth } from '@/src/services/firebaseConfig';
+import { restoreFromCloud } from '@/src/services/sync';
 
 interface SyncSettingsViewProps {
     onRefreshData?: () => void;
@@ -33,6 +34,22 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
         }
         try {
             await signIn(email, password);
+
+            // Auto Restore after login
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                try {
+                    await restoreFromCloud(currentUser.uid);
+                    if (onRefreshData) onRefreshData();
+                    Alert.alert('同步完成', '已自動為您下載雲端備份');
+                } catch (e: any) {
+                    // Ignore if no backup found (new user or clean state)
+                    if (e.message !== "No backup found in cloud.") {
+                        console.error("Auto restore failed:", e);
+                        Alert.alert('同步警告', '雖已登入，但無法下載備份: ' + e.message);
+                    }
+                }
+            }
         } catch (error: any) {
             Alert.alert('登入失敗', error.message);
         }
@@ -45,6 +62,11 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
         }
         try {
             await signUp(email, password);
+            // New user likely has no backup, but we can try checks or just skip.
+            // Usually valid to try just in case account existed before? 
+            // Register fails if account exists. So this is strictly new user.
+            // Skipping auto-restore for register to avoid "No backup" error log spam, 
+            // unless we want to support "Register with existing cloud data"? No, that's impossible.
         } catch (error: any) {
             Alert.alert('註冊失敗', error.message);
         }

@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+// import { doc, setDoc, getDoc } from 'firebase/firestore'; // Removed modular imports
 import { db } from './firebaseConfig';
 import { dbOperations } from './database';
 import * as CategoryStorage from '../utils/categoryStorage';
@@ -11,14 +11,14 @@ export const backupToCloud = async (userId: string, data: BackupData): Promise<v
   try {
     if (!userId) throw new Error("User ID is required for backup.");
 
-    const backupRef = doc(db, "users", userId, "backups", "latest");
+    const backupRef = db.collection("users").doc(userId).collection("backups").doc("latest");
 
     // Firestore 不支援直接儲存自定義物件 (如 Date)，需轉為 JSON 或 Timestamp
     // 這裡我們假設 BackupData 內的資料已經是 JSON 友善的格式 (exportData 已處理)
     // 但若有 undefined 欄位，Firestore 會報錯，需注意 (JSON.stringify 會移除 undefined)
     const cleanData = JSON.parse(JSON.stringify(data));
 
-    await setDoc(backupRef, cleanData);
+    await backupRef.set(cleanData);
     console.log('Backup uploaded successfully.');
   } catch (error) {
     console.error('Backup upload failed:', error);
@@ -34,10 +34,10 @@ export const restoreFromCloud = async (userId: string): Promise<void> => {
   try {
     if (!userId) throw new Error("User ID is required for restore.");
 
-    const backupRef = doc(db, "users", userId, "backups", "latest");
-    const docSnap = await getDoc(backupRef);
+    const backupRef = db.collection("users").doc(userId).collection("backups").doc("latest");
+    const docSnap = await backupRef.get();
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const data = docSnap.data() as BackupData;
       console.log("Backup found, starting restore...");
       await importData(data);

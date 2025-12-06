@@ -8,7 +8,7 @@ import {
 const SwipeView = ({ children, onBack, style }: { children: React.ReactNode, onBack: () => void, style?: any }) => {
     const panResponder = useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
+            onStartShouldSetPanResponder: () => false,
             onMoveShouldSetPanResponder: (_, gestureState) => {
                 // Only activate if horizontal swipe is dominant and moving right
                 return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && gestureState.dx > 10;

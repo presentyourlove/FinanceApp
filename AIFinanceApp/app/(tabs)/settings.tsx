@@ -22,6 +22,9 @@ import { TransactionType } from '@/src/types';
 import SwipeView from '@/src/components/common/SwipeView';
 import SyncSettingsView from '@/src/components/settings/SyncSettingsView';
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList from 'react-native-draggable-flatlist';
+
 interface Account {
     id: number;
     name: string;
@@ -87,6 +90,17 @@ export default function SettingsScreen() {
         }, [])
     );
 
+    const handleReorderCategories = async (type: TransactionType.INCOME | TransactionType.EXPENSE, newData: string[]) => {
+        setCategories(prev => ({
+            ...prev,
+            [type]: newData
+        }));
+        await CategoryStorage.saveCategories({
+            ...categories,
+            [type]: newData
+        });
+    };
+
     const handleAddCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, name: string) => {
         if (!name) return;
         const updatedCategories = await CategoryStorage.addCategory(type, name);
@@ -97,11 +111,6 @@ export default function SettingsScreen() {
 
     const handleDeleteCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, category: string) => {
         const updatedCategories = await CategoryStorage.deleteCategory(type, category);
-        setCategories(updatedCategories);
-    };
-
-    const moveCategory = async (type: TransactionType.INCOME | TransactionType.EXPENSE, index: number, direction: 'up' | 'down') => {
-        const updatedCategories = await CategoryStorage.moveCategory(type, index, direction);
         setCategories(updatedCategories);
     };
 
@@ -306,49 +315,71 @@ export default function SettingsScreen() {
 
     const renderCategorySettings = () => (
         <SwipeView onBack={() => setManageMode('main')}>
-            <ScrollView style={{ flex: 1 }}>
-                <View style={{ paddingHorizontal: 15 }}>
-                    <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-                        <TouchableOpacity onPress={() => setCatType(TransactionType.EXPENSE)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.EXPENSE ? colors.expense : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== TransactionType.EXPENSE ? 1 : 0, borderColor: colors.borderColor }]}>
-                            <Text style={[styles.buttonText, { color: catType === TransactionType.EXPENSE ? '#fff' : colors.text }]}>支出</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setCatType(TransactionType.INCOME)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.INCOME ? colors.income : colors.card, flex: 1, borderWidth: catType !== TransactionType.INCOME ? 1 : 0, borderColor: colors.borderColor }]}>
-                            <Text style={[styles.buttonText, { color: catType === TransactionType.INCOME ? '#fff' : colors.text }]}>收入</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <Text style={styles.subtitle}>新增{catType === TransactionType.INCOME ? '收入' : '支出'}分類</Text>
-                <View style={styles.card}>
-                    <View style={{ flexDirection: 'row' }}>
-                        <TextInput
-                            style={[styles.input, { flex: 1, marginRight: 10 }]}
-                            placeholder="新分類名稱"
-                            placeholderTextColor={colors.subtleText}
-                            value={newCat}
-                            onChangeText={setNewCat}
-                        />
-                        <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={() => handleAddCategory(catType, newCat)}>
-                            <Text style={styles.buttonText}>新增</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <Text style={styles.subtitle}>現有{catType === TransactionType.INCOME ? '收入' : '支出'}分類</Text>
-                <View style={styles.card}>
-                    {categories[catType]?.map((cat: string, index: number) => (
-                        <View key={index} style={styles.settingListItem}>
-                            <Text style={styles.settingItemText}>{cat}</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <TouchableOpacity onPress={() => moveCategory(catType, index, 'up')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-up" size={20} color={colors.subtleText} /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => moveCategory(catType, index, 'down')} style={{ paddingHorizontal: 5 }}><Ionicons name="arrow-down" size={20} color={colors.subtleText} /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDeleteCategory(catType, cat)} style={{ paddingHorizontal: 5 }}><Ionicons name="trash" size={20} color={colors.expense} /></TouchableOpacity>
+            {/* 移除 ScrollView，改由 DraggableFlatList 負責滾動 */}
+            <View style={{ flex: 1 }}>
+                <DraggableFlatList
+                    data={categories[catType] || []}
+                    onDragEnd={({ data }) => {
+                        handleReorderCategories(catType, data);
+                    }}
+                    keyExtractor={(item) => item}
+                    ListHeaderComponent={
+                        <>
+                            <View style={{ paddingHorizontal: 15, marginTop: 20 }}>
+                                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+                                    <TouchableOpacity onPress={() => setCatType(TransactionType.EXPENSE)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.EXPENSE ? colors.expense : colors.card, marginRight: 10, flex: 1, borderWidth: catType !== TransactionType.EXPENSE ? 1 : 0, borderColor: colors.borderColor }]}>
+                                        <Text style={[styles.buttonText, { color: catType === TransactionType.EXPENSE ? '#fff' : colors.text }]}>支出</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setCatType(TransactionType.INCOME)} style={[styles.bigButton, { backgroundColor: catType === TransactionType.INCOME ? colors.income : colors.card, flex: 1, borderWidth: catType !== TransactionType.INCOME ? 1 : 0, borderColor: colors.borderColor }]}>
+                                        <Text style={[styles.buttonText, { color: catType === TransactionType.INCOME ? '#fff' : colors.text }]}>收入</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
+
+                            <Text style={styles.subtitle}>新增{catType === TransactionType.INCOME ? '收入' : '支出'}分類</Text>
+                            <View style={styles.card}>
+                                <View style={{ flexDirection: 'row' }}>
+                                    <TextInput
+                                        style={[styles.input, { flex: 1, marginRight: 10 }]}
+                                        placeholder="新分類名稱"
+                                        placeholderTextColor={colors.subtleText}
+                                        value={newCat}
+                                        onChangeText={setNewCat}
+                                    />
+                                    <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }]} onPress={() => handleAddCategory(catType, newCat)}>
+                                        <Text style={styles.buttonText}>新增</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <Text style={styles.subtitle}>現有{catType === TransactionType.INCOME ? '收入' : '支出'}分類 (長按可排序)</Text>
+                        </>
+                    }
+                    containerStyle={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 50 }}
+                    renderItem={({ item, drag, isActive }: { item: string, drag: () => void, isActive: boolean }) => (
+                        <View style={{ paddingHorizontal: 20, marginBottom: 0 }}>
+                            {/* 注意：DraggableFlatList 的 Item 最好不要有外層 margin，這裡我只加 padding 調整 */}
+                            <TouchableOpacity
+                                onLongPress={drag}
+                                disabled={isActive}
+                                style={[
+                                    styles.settingListItem,
+                                    { backgroundColor: isActive ? colors.inputBackground : colors.card, marginHorizontal: 0, paddingHorizontal: 15, borderRadius: isActive ? 12 : 0, marginBottom: 0 }
+                                ]}
+                            >
+                                <Text style={styles.settingItemText}>{item}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Ionicons name="menu" size={20} color={colors.subtleText} style={{ marginRight: 10 }} />
+                                    <TouchableOpacity onPress={() => handleDeleteCategory(catType, item)} style={{ paddingHorizontal: 5 }}>
+                                        <Ionicons name="trash" size={20} color={colors.expense} />
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
                         </View>
-                    ))}
-                </View>
-                <View style={{ height: 50 }} />
-            </ScrollView>
+                    )}
+                />
+            </View>
         </SwipeView>
     );
 
@@ -523,23 +554,25 @@ export default function SettingsScreen() {
     );
 
     return (
-        <View style={styles.container}>
-            {renderHeader(
-                manageMode === 'main' ? '設定' :
-                    manageMode === 'category' ? '分類管理' :
-                        manageMode === 'account' ? '帳本管理' :
-                            manageMode === 'currency' ? '匯率管理' :
-                                manageMode === 'theme' ? '主題設定' : '同步備份',
-                manageMode !== 'main'
-            )}
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <View style={styles.container}>
+                {renderHeader(
+                    manageMode === 'main' ? '設定' :
+                        manageMode === 'category' ? '分類管理' :
+                            manageMode === 'account' ? '帳本管理' :
+                                manageMode === 'currency' ? '匯率管理' :
+                                    manageMode === 'theme' ? '主題設定' : '同步備份',
+                    manageMode !== 'main'
+                )}
 
-            {manageMode === 'main' && renderMainSettings()}
-            {manageMode === 'category' && renderCategorySettings()}
-            {manageMode === 'account' && renderAccountSettings()}
-            {manageMode === 'currency' && renderCurrencySettings()}
-            {manageMode === 'theme' && renderThemeSettings()}
-            {manageMode === 'sync' && renderSyncSettings()}
-        </View>
+                {manageMode === 'main' && renderMainSettings()}
+                {manageMode === 'category' && renderCategorySettings()}
+                {manageMode === 'account' && renderAccountSettings()}
+                {manageMode === 'currency' && renderCurrencySettings()}
+                {manageMode === 'theme' && renderThemeSettings()}
+                {manageMode === 'sync' && renderSyncSettings()}
+            </View>
+        </GestureHandlerRootView>
     );
 }
 

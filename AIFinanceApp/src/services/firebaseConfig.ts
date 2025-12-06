@@ -1,6 +1,7 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 // 檢查是否有設定 Firebase 環境變數
 const hasFirebaseConfig = Boolean(
@@ -25,20 +26,28 @@ if (!hasFirebaseConfig) {
 }
 
 // Initialize Firebase
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+let app;
+let auth: firebase.auth.Auth;
+let db: firebase.firestore.Firestore;
 
 try {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
+    if (!firebase.apps.length) {
+        app = firebase.initializeApp(firebaseConfig);
+    } else {
+        app = firebase.app();
+    }
+
+    // Compat Auth automatically handles persistence with AsyncStorage if detected,
+    // or we can strictly set it if needed, but usually compat is smarter.
+    auth = firebase.auth();
+    db = firebase.firestore();
+
 } catch (error) {
-    console.error('Firebase 初始化失敗:', error);
+    console.error('Firebase 全局初始化失敗:', error);
     // 建立假的實例以避免應用程式崩潰
-    app = {} as FirebaseApp;
-    auth = {} as Auth;
-    db = {} as Firestore;
+    app = {} as any;
+    auth = {} as any;
+    db = {} as any;
 }
 
 export { auth, db, hasFirebaseConfig };
