@@ -10,7 +10,7 @@ import {
 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/src/context/ThemeContext';
@@ -35,6 +35,7 @@ interface Account {
 
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
+    const params = useLocalSearchParams();
 
     const { colors, theme, setTheme } = useTheme();
     const styles = getStyles(colors);
@@ -47,6 +48,12 @@ export default function SettingsScreen() {
 
     // manageMode now includes 'main' for the list view
     const [manageMode, setManageMode] = useState<'main' | 'category' | 'account' | 'currency' | 'theme' | 'sync'>('main');
+
+    useEffect(() => {
+        if (params.mode === 'sync') {
+            setManageMode('sync');
+        }
+    }, [params.mode]);
 
     // 新增帳本狀態
     const [newAccName, setNewAccName] = useState('');

@@ -89,6 +89,8 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 
     ```bash
     npx eas-cli build --platform android --profile apk
+    npx expo export -p web
+    npx firebase deploy --only hosting
     ```
 
     打包後，您可以在 `AIFinanceApp` 目錄下找到生成的 APK 檔案。

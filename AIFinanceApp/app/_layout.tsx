@@ -24,6 +24,7 @@ SplashScreen.preventAutoHideAsync();
 function RootLayoutContent() {
   const { isDark } = useTheme();
 
+
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
