@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Platform, View, Text } from 'react-native';
+import { Platform, View, Text, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 
 export default function Index() {
@@ -21,8 +21,10 @@ export default function Index() {
     }, []);
 
     return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>Loading...</Text>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
+            <Text style={{ color: '#6366f1', fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>FinanceApp</Text>
+            <ActivityIndicator size="large" color="#6366f1" />
+            <Text style={{ color: '#94a3b8', marginTop: 10 }}>正在啟動應用程式...</Text>
         </View>
     );
 }

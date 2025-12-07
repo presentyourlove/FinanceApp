@@ -8,8 +8,20 @@ import { Account, Transaction, Budget, Goal, Investment, TransactionType } from 
 // ===================================================
 // Observer Pattern
 // ===================================================
+// ===================================================
+// Observer Pattern & Persistence
+// ===================================================
 type DataChangeListener = () => void;
 const listeners: DataChangeListener[] = [];
+const STORAGE_KEY = 'aifinance_web_db';
+
+const saveDataToStorage = () => {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryStore));
+    } catch (e) {
+        console.error('Failed to save data to localStorage:', e);
+    }
+};
 
 export const addDataChangeListener = (listener: DataChangeListener) => {
     if (!listeners.includes(listener)) {
@@ -25,6 +37,8 @@ export const removeDataChangeListener = (listener: DataChangeListener) => {
 };
 
 const notifyListeners = () => {
+    // Persist on every change
+    saveDataToStorage();
     listeners.forEach(listener => listener());
 };
 
@@ -46,6 +60,26 @@ const memoryStore = {
 export const initDatabase = async (skipDefaultData: boolean = false) => {
     console.log("Initializing In-Memory Database for Web...");
 
+    // Try to load from localStorage first
+    try {
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        if (storedData) {
+            const parsed = JSON.parse(storedData);
+            if (parsed) {
+                console.log("Restoring data from localStorage...");
+                memoryStore.accounts = parsed.accounts || [];
+                memoryStore.transactions = parsed.transactions || [];
+                memoryStore.budgets = parsed.budgets || [];
+                memoryStore.goals = parsed.goals || [];
+                memoryStore.investments = parsed.investments || [];
+                notifyListeners();
+                return;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load data from localStorage:", e);
+    }
+
     if (!skipDefaultData && memoryStore.accounts.length === 0) {
         console.log("Inserting default data for Web...");
         // Add default accounts
@@ -61,6 +95,9 @@ export const initDatabase = async (skipDefaultData: boolean = false) => {
 
         // Add default goal
         memoryStore.goals.push({ id: 1, name: '新手機', targetAmount: 30000, currentAmount: 5000, deadline: '2025-12-31', currency: 'TWD' });
+
+        // Initial save
+        saveDataToStorage();
     }
     notifyListeners();
 };
