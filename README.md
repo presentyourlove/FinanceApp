@@ -2,6 +2,12 @@
 
 AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理財應用程式。透過直觀的介面與強大的功能，協助使用者輕鬆追蹤收支、規劃預算、設定存錢目標，並透過圖表分析財務狀況。
 
+**目前版本狀態**：🚀 **極度優化 (Deep Polished)**
+
+- **Code Quality**: 嚴格遵循 TypeScript 規範，0 Lint Errors。
+- **UI Design**: 導入全域樣式系統 (`src/styles/common.ts`)，視覺體驗一致且流暢。
+- **Performance**: 針對列表渲染進行效能優化 (`React.memo`, `useCallback`)。
+
 **跨平台支援**：
 
 - 📱 **原生 App** (Android/iOS)：使用 SQLite 本地資料庫，支援離線使用
@@ -47,22 +53,14 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 
 ## 🛠️ 技術堆疊 (Tech Stack)
 
-- **核心框架**: [React Native](https://reactnative.dev/) (v0.76), [Expo](https://expo.dev/) (v52)
-- **語言**: [TypeScript](https://www.typescriptlang.org/)
+- **核心框架**: [React Native](https://reactnative.dev/) (v0.81), [Expo](https://expo.dev/) (v54)
+- **開發語言**: [TypeScript](https://www.typescriptlang.org/)
 - **路由管理**: [Expo Router](https://docs.expo.dev/router/introduction/)
-- **資料儲存**:
+- **資料庫**:
   - Native: [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-  - Web: localStorage (自動持久化)
-- **雲端服務**: [Firebase](https://firebase.google.com/) (Authentication, Firestore)
-- **部署平台**: [Firebase Hosting](https://firebase.google.com/products/hosting)
-- **圖表套件**: [React Native Chart Kit](https://github.com/indiespirit/react-native-chart-kit)
-- **UI 元件**: React Native Elements, Expo Vector Icons
-
-## 📋 環境需求 (Prerequisites)
-
-- **Node.js**: 建議 v20.0.0 或以上版本。
-- **npm** 或 **yarn**: 套件管理工具。
-- **Expo Go**: 請在您的 iOS 或 Android 手機上下載 Expo Go App 以進行測試。
+  - Web: localStorage (Web Storage API)
+- **後端服務**: [Firebase](https://firebase.google.com/) (Auth, Firestore, Hosting)
+- **架構設計**: 模組化服務層 (Modular Service Layer) 與 元件化設計 (Component-Based Architecture)
 
 ## 🚀 安裝與執行 (Installation & Setup)
 
@@ -70,7 +68,7 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 
     ```bash
     git clone https://github.com/presentyourlove/AIFinanceApp.git
-    cd AIFinanceApp/AIFinanceApp
+    cd AIFinanceApp
     ```
 
 2. **安裝相依套件 (Install Dependencies)**
@@ -117,33 +115,30 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
     npx firebase deploy --only hosting
     ```
 
-    打包後，Android APK 可透過 EAS Build 下載，Web 版本將自動部署至 Firebase Hosting。
-
 ## 📂 專案結構 (Project Structure)
 
 ```text
-AIFinanceApp/            # 專案根目錄
-├── AIFinanceApp/        # 應用程式原始碼 (Expo Project)
-│   ├── app/             # Expo Router 頁面路由
-│   │   ├── (tabs)/      # 底部導航頁籤 (index, budget, planning, analysis, settings)
-│   │   └── _layout.tsx  # 全域佈局設定
-│   ├── src/
-│   │   ├── components/  # 可重用 UI 元件 (按功能分類)
-│   │   │   ├── transaction/ # 記帳相關元件
-│   │   │   ├── settings/ # 設定相關元件 (含同步功能)
-│   │   │   ├── common/  # 通用元件
-│   │   │   └── ...
-│   │   ├── services/    # 外部服務與資料庫邏輯
-│   │   │   ├── database.ts  # SQLite 資料庫操作 (Native)
-│   │   │   ├── database.web.ts  # localStorage 實作 (Web)
-│   │   │   ├── firebaseConfig.ts # Firebase 設定
-│   │   │   └── sync.ts  # 雲端同步邏輯
-│   │   ├── utils/       # 工具函式 (格式化、儲存輔助)
-│   │   ├── context/     # React Context (主題管理等)
-│   │   └── types.ts     # TypeScript 型別定義
-│   ├── assets/          # 靜態資源 (圖片、字型)
-│   └── package.json     # 專案設定與相依套件
-└── README.md            # 專案說明文件
+AIFinanceApp/
+├── app/                 # Expo Router 頁面路由
+│   ├── (tabs)/          # 底部導航 (index, budget, planning, analysis, settings)
+│   └── _layout.tsx      # 全域佈局設定
+├── src/
+│   ├── components/      # UI 元件庫
+│   │   ├── common/      # 通用元件 (ModalPage, PickerOverlay...)
+│   │   ├── transaction/ # 記帳元件
+│   │   ├── investment/  # 投資元件
+│   │   └── ...
+│   ├── styles/          # 全域樣式定義
+│   │   └── common.ts    # 共用樣式 (Shadows, Cards, Buttons)
+│   ├── hooks/           # Custom Hooks (useBudgets, useInvestments...)
+│   ├── services/        # 核心邏輯層
+│   │   ├── database/    # 資料庫模組 (SQLite & Web)
+│   │   └── storage/     # 本地儲存 (Theme, Settings)
+│   ├── context/         # React Context (ThemeContext)
+│   ├── i18n/            # 國際化設定
+│   └── types.ts         # TypeScript 型別定義
+├── assets/              # 靜態資源
+└── package.json         # 專案配置
 ```
 
 ## 📄 授權 (License)
