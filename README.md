@@ -67,8 +67,8 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
 1. **複製專案 (Clone Repository)**
 
     ```bash
-    git clone https://github.com/presentyourlove/AIFinanceApp.git
-    cd AIFinanceApp
+    git clone https://github.com/presentyourlove/FinanceApp.git
+    cd FinanceApp
     ```
 
 2. **安裝相依套件 (Install Dependencies)**
@@ -114,6 +114,19 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
     npx expo export -p web
     npx firebase deploy --only hosting
     ```
+
+## ❓ 故障排除 (Troubleshooting)
+
+### Node.js v24 啟動崩潰 (Expo CLI Crash)
+
+如果您使用 **Node.js v24** 執行 `npx expo start` 時遇到 `TypeError: Body is unusable` 錯誤，這是因為新版 Node.js 內建的 `undici` 與 Expo CLI 衝突所致。
+
+**解決方案**：
+請在 `.env` 檔案中加入以下設定，開啟離線模式以跳過依賴檢查：
+
+```env
+EXPO_OFFLINE=1
+```
 
 ## 📂 專案結構 (Project Structure)
 
