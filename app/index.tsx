@@ -18,7 +18,7 @@ export default function Index() {
         }, 0);
 
         return () => clearTimeout(timer);
-    }, []);
+    }, [router]);
 
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>

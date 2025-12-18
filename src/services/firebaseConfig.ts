@@ -1,6 +1,8 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+import { ErrorHandler } from '../utils/errorHandler';
+
 
 
 // 檢查是否有設定 Firebase 環境變數
@@ -42,7 +44,7 @@ try {
     db = firebase.firestore();
 
 } catch (error) {
-    console.error('Firebase 全局初始化失敗:', error);
+    ErrorHandler.handleError(error, 'FirebaseConfig:Initialize');
     // 建立假的實例以避免應用程式崩潰
 
     auth = {} as any;

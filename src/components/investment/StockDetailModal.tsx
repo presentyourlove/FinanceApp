@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Investment } from '@/src/services/database';
+import i18n from '@/src/i18n';
 
 interface StockDetailModalProps {
     visible: boolean;
@@ -29,14 +30,14 @@ export default function StockDetailModal({
         <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
             <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
                 <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>{stockName} 持倉明細</Text>
+                    <Text style={styles.modalTitle}>{i18n.t('investment.holdings', { name: stockName })}</Text>
                     <TouchableOpacity onPress={onClose}>
                         <Ionicons name="close" size={24} color={colors.text} />
                     </TouchableOpacity>
                 </View>
                 <View style={{ padding: 15 }}>
                     <TouchableOpacity style={styles.updatePriceButton} onPress={onUpdatePrice}>
-                        <Text style={styles.updatePriceButtonText}>更新現價</Text>
+                        <Text style={styles.updatePriceButtonText}>{i18n.t('investment.updatePrice')}</Text>
                     </TouchableOpacity>
                 </View>
                 <FlatList
@@ -48,9 +49,9 @@ export default function StockDetailModal({
                             <View style={styles.card}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.cardTitle}>{new Date(item.date).toLocaleDateString()}</Text>
-                                    <Text style={styles.cardAmount}>{item.amount} 股</Text>
+                                    <Text style={styles.cardAmount}>{item.amount} {i18n.t('investment.shares')}</Text>
                                 </View>
-                                <Text style={styles.cardDetails}>成本: {item.costPrice} | 單價: {item.currentPrice?.toFixed(2)}</Text>
+                                <Text style={styles.cardDetails}>{i18n.t('investment.cost')}: {item.costPrice} | {i18n.t('investment.unitPrice')}: {item.currentPrice?.toFixed(2)}</Text>
                             </View>
                         </TouchableOpacity>
                     )}

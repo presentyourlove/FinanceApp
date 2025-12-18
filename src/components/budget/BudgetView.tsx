@@ -9,6 +9,8 @@ import { useBudgets } from '@/src/hooks/useBudgets';
 import { getStyles } from './styles';
 import { BudgetList } from './BudgetList';
 import { BudgetFormModal } from './BudgetFormModal';
+import i18n from '@/src/i18n';
+import { CURRENCIES } from '@/src/constants/currencies';
 
 export default function BudgetView({ style }: { style?: any }) {
     const insets = useSafeAreaInsets();
@@ -29,8 +31,6 @@ export default function BudgetView({ style }: { style?: any }) {
     const [isModalVisible, setModalVisible] = useState(false);
     const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
-    const currencies = ['TWD', 'USD', 'JPY', 'EUR', 'KRW', 'CNY'];
-
     useFocusEffect(
         React.useCallback(() => {
             refresh();
@@ -48,15 +48,15 @@ export default function BudgetView({ style }: { style?: any }) {
             setEditingBudget(null);
         } catch (error) {
             console.error(error);
-            Alert.alert('錯誤', '儲存預算失敗');
+            Alert.alert(i18n.t('budget.errorTitle'), i18n.t('budget.saveFail'));
         }
     };
 
     const handleDeleteBudget = async (id: number) => {
-        Alert.alert('刪除預算', '確定要刪除這個預算嗎？', [
-            { text: '取消', style: 'cancel' },
+        Alert.alert(i18n.t('budget.deleteTitle'), i18n.t('budget.deleteConfirm'), [
+            { text: i18n.t('common.cancel'), style: 'cancel' },
             {
-                text: '刪除',
+                text: i18n.t('common.delete'),
                 style: 'destructive',
                 onPress: async () => {
                     try {
@@ -72,7 +72,7 @@ export default function BudgetView({ style }: { style?: any }) {
     return (
         <View style={[styles.container, style]}>
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <Text style={styles.headerTitle}>預算管理</Text>
+                <Text style={styles.headerTitle}>{i18n.t('budget.title')}</Text>
                 <TouchableOpacity onPress={() => {
                     setEditingBudget(null);
                     setModalVisible(true);
@@ -105,8 +105,9 @@ export default function BudgetView({ style }: { style?: any }) {
                 availableCategories={availableCategories}
                 colors={colors}
                 styles={styles}
-                currencies={currencies}
+                currencies={CURRENCIES}
             />
         </View>
     );
 }
+

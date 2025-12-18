@@ -13,8 +13,10 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
 import { useTheme } from '@/src/context/ThemeContext';
-import * as CurrencyStorage from '@/src/utils/currencyStorage';
-import { TransactionType } from '@/src/types';
+import * as CurrencyStorage from '@/src/services/storage/currencyStorage';
+import i18n from '@/src/i18n';
+import { calculateTotals, generateAdvice, CategoryData } from '@/src/utils/analysisHelpers';
+import { ErrorHandler } from '@/src/utils/errorHandler';
 
 type AnalysisPeriod = 'month' | 'year';
 
@@ -30,7 +32,7 @@ export default function AnalysisScreen() {
 
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExpense, setTotalExpense] = useState(0);
-    const [topCategories, setTopCategories] = useState<{ name: string; amount: number; color: string; legendFontColor: string; legendFontSize: number; }[]>([]);
+    const [topCategories, setTopCategories] = useState<CategoryData[]>([]);
     const [advice, setAdvice] = useState<string[]>([]);
     const [period, setPeriod] = useState<AnalysisPeriod>('month');
     const [mainCurrency, setMainCurrency] = useState('TWD');
@@ -69,53 +71,31 @@ export default function AnalysisScreen() {
                     ]);
 
                     setMainCurrency(currencySettings.mainCurrency);
-                    const rates = currencySettings.exchangeRates;
 
-                    let income = 0, expense = 0;
-                    const categoryMap = new Map<string, number>();
+                    // Use Helper for Calculation
+                    const result = calculateTotals(
+                        transactions,
+                        currencySettings.exchangeRates,
+                        currencySettings.mainCurrency,
+                        colors.charts,
+                        colors.subtleText
+                    );
 
-                    for (const t of transactions) {
-                        // Get account currency rate relative to main currency
-                        const accRate = rates[t.accountCurrency] || 1;
+                    setTotalIncome(result.income);
+                    setTotalExpense(result.expense);
+                    setTopCategories(result.topCategories);
 
-                        // Convert amount to main currency
-                        // Rate: 1 Main = X AccountCurrency
-                        // AmountMain = AmountAccount / Rate
-                        const amountInMain = t.amount / accRate;
-
-                        if (t.type === TransactionType.INCOME) {
-                            income += amountInMain;
-                        } else if (t.type === TransactionType.EXPENSE) {
-                            expense += amountInMain;
-                            const cat = t.description?.split(' ')[0] || '其他';
-                            categoryMap.set(cat, (categoryMap.get(cat) || 0) + amountInMain);
-                        }
-                    }
-
-                    setTotalIncome(income);
-                    setTotalExpense(expense);
-
-                    const sortedCategories = Array.from(categoryMap.entries())
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([category, amount], index) => ({
-                            name: category,
-                            amount: Math.round(amount), // Round for display
-                            color: colors.charts[index % colors.charts.length],
-                            legendFontColor: colors.subtleText,
-                            legendFontSize: 12
-                        }));
-                    setTopCategories(sortedCategories);
-
-                    const newAdvice = [];
-                    const periodText = period === 'month' ? '本月' : '今年';
-                    if (expense > income) newAdvice.push(`⚠️ ${periodText}支出已超過收入，建議檢視非必要開銷。`);
-                    else if (expense > income * 0.8) newAdvice.push(`⚠️ ${periodText}支出已達收入的 80%，請注意控制預算。`);
-                    else newAdvice.push(`✅ ${periodText}財務狀況良好，繼續保持！`);
-                    if (sortedCategories.length > 0) newAdvice.push(`💡 您在「${sortedCategories[0].name}」類別花費最多，建議設定預算上限。`);
+                    // Use Helper for Advice
+                    const newAdvice = generateAdvice(
+                        result.income,
+                        result.expense,
+                        result.topCategories[0]?.name,
+                        period
+                    );
                     setAdvice(newAdvice);
 
                 } catch (error) {
-                    console.error(error);
+                    ErrorHandler.handleError(error, 'AnalysisScreen:loadData');
                 }
             };
 
@@ -126,30 +106,30 @@ export default function AnalysisScreen() {
     return (
         <View style={styles.container}>
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <Text style={styles.title}>財務分析 ({mainCurrency})</Text>
+                <Text style={styles.title}>{i18n.t('analysis.title')} ({mainCurrency})</Text>
                 <TouchableOpacity style={styles.periodButton} onPress={() => setPeriod(p => p === 'month' ? 'year' : 'month')}>
                     <Ionicons name="calendar-outline" size={20} color={colors.accent} style={{ marginRight: 5 }} />
-                    <Text style={styles.periodButtonText}>{period === 'month' ? '切換至年檢視' : '切換至月檢視'}</Text>
+                    <Text style={styles.periodButtonText}>{period === 'month' ? i18n.t('analysis.switchToYear') : i18n.t('analysis.switchToMonth')}</Text>
                 </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.overviewContainer}>
-                    <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? '當月收入' : '當年收入'}</Text><Text style={styles.cardValueIncome}>${totalIncome.toFixed(0)}</Text></View>
-                    <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? '當月支出' : '當年支出'}</Text><Text style={styles.cardValueExpense}>${totalExpense.toFixed(0)}</Text></View>
+                    <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? i18n.t('analysis.monthlyIncome') : i18n.t('analysis.yearlyIncome')}</Text><Text style={styles.cardValueIncome}>${totalIncome.toFixed(0)}</Text></View>
+                    <View style={styles.card}><Text style={styles.cardLabel}>{period === 'month' ? i18n.t('analysis.monthlyExpense') : i18n.t('analysis.yearlyExpense')}</Text><Text style={styles.cardValueExpense}>${totalExpense.toFixed(0)}</Text></View>
                 </View>
 
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>支出佔比</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t('analysis.spendingRatio')}</Text>
                     <View style={styles.chartCard}>
                         {topCategories.length > 0 ? (
                             <PieChart data={topCategories} width={Dimensions.get("window").width - 80} height={220} chartConfig={chartConfig} accessor={"amount"} backgroundColor={"transparent"} paddingLeft={"15"} center={[10, 0]} absolute />
-                        ) : (<Text style={styles.emptyText}>尚無支出資料可顯示圖表</Text>)}
+                        ) : (<Text style={styles.emptyText}>{i18n.t('analysis.noChartData')}</Text>)}
                     </View>
                 </View>
 
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>理財建議</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t('analysis.advice')}</Text>
                     <View style={styles.adviceCard}>
                         {advice.map((item, index) => (
                             <View key={index} style={styles.adviceItem}><Ionicons name="bulb-outline" size={24} color={colors.charts[2]} style={{ marginRight: 10 }} /><Text style={styles.adviceText}>{item}</Text></View>
@@ -158,7 +138,7 @@ export default function AnalysisScreen() {
                 </View>
 
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>最高花費類別 ({period === 'month' ? '本月' : '今年'})</Text>
+                    <Text style={styles.sectionTitle}>{i18n.t('analysis.topCategories')} ({period === 'month' ? i18n.t('analysis.thisMonth') : i18n.t('analysis.thisYear')})</Text>
                     <View style={styles.categoryCard}>
                         {topCategories.length > 0 ? (
                             topCategories.slice(0, 5).map((item, index) => (
@@ -170,7 +150,7 @@ export default function AnalysisScreen() {
                                     <Text style={styles.categoryAmount}>${item.amount}</Text>
                                 </View>
                             ))
-                        ) : (<Text style={styles.emptyText}>尚無支出資料</Text>)}
+                        ) : (<Text style={styles.emptyText}>{i18n.t('analysis.noData')}</Text>)}
                     </View>
                 </View>
             </ScrollView>

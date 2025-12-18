@@ -1,6 +1,7 @@
 import { User } from 'firebase/auth';
 import { auth } from './firebaseConfig';
 import { useEffect, useState } from 'react';
+import { ErrorHandler } from '../utils/errorHandler';
 
 export const useAuth = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -19,7 +20,7 @@ export const useAuth = () => {
             setLoading(true);
             await auth.signInWithEmailAndPassword(email, password);
         } catch (error: any) {
-            console.error("Sign in error:", error);
+            ErrorHandler.handleError(error, "useAuth:signIn");
             throw error;
         } finally {
             setLoading(false);
@@ -31,7 +32,7 @@ export const useAuth = () => {
             setLoading(true);
             await auth.createUserWithEmailAndPassword(email, password);
         } catch (error: any) {
-            console.error("Sign up error:", error);
+            ErrorHandler.handleError(error, "useAuth:signUp");
             throw error;
         } finally {
             setLoading(false);
@@ -43,7 +44,7 @@ export const useAuth = () => {
             setLoading(true);
             await auth.signOut();
         } catch (error) {
-            console.error("Sign out error:", error);
+            ErrorHandler.handleError(error, "useAuth:signOut");
         } finally {
             setLoading(false);
         }

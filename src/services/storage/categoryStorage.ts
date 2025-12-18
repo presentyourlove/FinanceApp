@@ -1,17 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TransactionType } from '@/src/types';
 
+import { DEFAULT_CATEGORIES } from '@/src/constants/categories';
+
 const CATEGORIES_KEY = '@finance_categories';
 
-// 預設分類
-const defaultCategories = {
-    [TransactionType.EXPENSE]: [
-        '餐飲', '交通', '服飾', '居住', '購物', '醫療', '保險', '教育', '娛樂', '旅遊', '運動'
-    ],
-    [TransactionType.INCOME]: [
-        '薪水', '津貼', '兼職', '接案', '股利', '利息', '資本利得', '租金', '稿費', '版稅', '禮金', '退稅', '補助'
-    ],
-};
 
 export interface Categories {
     [TransactionType.EXPENSE]: string[];
@@ -29,11 +22,11 @@ export const loadCategories = async (): Promise<Categories> => {
             return JSON.parse(stored);
         }
         // 如果沒有儲存的類別,使用預設值並儲存
-        await saveCategories(defaultCategories);
-        return defaultCategories;
+        await saveCategories(DEFAULT_CATEGORIES);
+        return DEFAULT_CATEGORIES;
     } catch (error) {
         console.error('載入類別失敗:', error);
-        return defaultCategories;
+        return DEFAULT_CATEGORIES;
     }
 };
 
@@ -102,6 +95,6 @@ export const moveCategory = async (
  * 重置為預設類別
  */
 export const resetCategories = async (): Promise<Categories> => {
-    await saveCategories(defaultCategories);
-    return defaultCategories;
+    await saveCategories(DEFAULT_CATEGORIES);
+    return DEFAULT_CATEGORIES;
 };

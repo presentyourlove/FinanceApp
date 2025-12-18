@@ -8,6 +8,7 @@ import { getStyles } from './styles';
 import { StockFormFields } from './StockFormFields';
 import { FixedDepositFormFields } from './FixedDepositFormFields';
 import { SavingsFormFields } from './SavingsFormFields';
+import i18n from '@/src/i18n';
 
 interface Account {
     id: number;
@@ -57,7 +58,7 @@ export default function AddInvestmentModal({
         if (accounts.length > 0 && !sourceAccountId) {
             setSourceAccountId(accounts[0].id);
         }
-    }, [accounts]);
+    }, [accounts, sourceAccountId]);
 
     const resetForm = () => {
         setType('stock');
@@ -126,14 +127,14 @@ export default function AddInvestmentModal({
     };
 
     const handleAddInvestment = async () => {
-        if (!name) return Alert.alert('錯誤', '請填寫名稱');
+        if (!name) return Alert.alert(i18n.t('common.error'), i18n.t('investment.missingName'));
         let numAmount = parseFloat(amount);
         if (type === 'stock') {
             if (!amount && costPrice && unitPrice) {
                 numAmount = parseFloat(costPrice) / parseFloat(unitPrice);
             }
         }
-        if (isNaN(numAmount) || numAmount <= 0) return Alert.alert('錯誤', '請輸入有效的數量/金額');
+        if (isNaN(numAmount) || numAmount <= 0) return Alert.alert(i18n.t('common.error'), i18n.t('investment.invalidAmount'));
 
         const data: any = {
             name, type, amount: numAmount, currency, date: date.toISOString(), notes,
@@ -141,7 +142,7 @@ export default function AddInvestmentModal({
         };
 
         if (type === 'stock') {
-            if (!costPrice) return Alert.alert('錯誤', '股票請輸入總成本');
+            if (!costPrice) return Alert.alert(i18n.t('common.error'), i18n.t('investment.missingCost'));
             data.costPrice = parseFloat(costPrice);
             data.currentPrice = unitPrice ? parseFloat(unitPrice) : (data.costPrice / numAmount);
             if (stockInputMode === 'cost') data.handlingFee = 0;
@@ -158,13 +159,13 @@ export default function AddInvestmentModal({
                 syncToTransaction,
                 sourceAccountId: syncToTransaction ? sourceAccountId : undefined
             });
-            Alert.alert('成功', '已新增投資項目');
+            Alert.alert(i18n.t('common.success'), i18n.t('investment.addSuccess'));
             resetForm();
             onClose();
             onSuccess();
         } catch (e) {
             console.error(e);
-            Alert.alert('錯誤', '新增失敗');
+            Alert.alert(i18n.t('common.error'), i18n.t('investment.addFail'));
         }
     };
 
@@ -177,17 +178,17 @@ export default function AddInvestmentModal({
     };
 
     return (
-        <ModalPage visible={visible} onClose={onClose} title="新增投資">
+        <ModalPage visible={visible} onClose={onClose} title={i18n.t('investment.addTitle')}>
             <ScrollView style={styles.formContainer}>
                 <View style={styles.typeSelector}>
                     {(['stock', 'fixed_deposit', 'savings'] as const).map((t) => (
                         <TouchableOpacity key={t} style={[styles.typeButton, type === t && { backgroundColor: colors.accent }]} onPress={() => setType(t)}>
-                            <Text style={[styles.typeButtonText, type === t && { color: '#fff' }]}>{t === 'stock' ? '股票' : t === 'fixed_deposit' ? '定存' : '活存'}</Text>
+                            <Text style={[styles.typeButtonText, type === t && { color: '#fff' }]}>{i18n.t(`investment.${t === 'stock' ? 'stock' : t === 'fixed_deposit' ? 'fixedDeposit' : 'savings'}`)}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
-                <Text style={styles.label}>名稱 (代號)</Text>
-                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="例如: 台積電, 2330" placeholderTextColor={colors.subtleText} />
+                <Text style={styles.label}>{i18n.t('investment.nameLabel')}</Text>
+                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder={i18n.t('investment.namePlaceholder')} placeholderTextColor={colors.subtleText} />
 
                 {type === 'stock' ? (
                     <StockFormFields
@@ -230,35 +231,35 @@ export default function AddInvestmentModal({
                 )}
 
                 {/* Common Fields */}
-                <Text style={styles.label}>幣別</Text>
+                <Text style={styles.label}>{i18n.t('budget.currency')}</Text>
                 <View style={styles.pickerContainer}>
                     <Picker selectedValue={currency} onValueChange={setCurrency} style={{ color: colors.text }}>
                         {currencyOptions.map(c => <Picker.Item key={c} label={c} value={c} />)}
                     </Picker>
                 </View>
 
-                <Text style={styles.label}>購買/開始日期</Text>
+                <Text style={styles.label}>{i18n.t('investment.dateLabel')}</Text>
                 <TouchableOpacity style={styles.dateButton} onPress={() => { setDatePickerMode('add_date'); setShowDatePicker(true); }}>
                     <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
                 </TouchableOpacity>
 
                 {type !== 'stock' && (
                     <>
-                        <Text style={styles.label}>手續費 (選填)</Text>
+                        <Text style={styles.label}>{i18n.t('investment.fee')}</Text>
                         <TextInput style={styles.input} value={handlingFee} onChangeText={setHandlingFee} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.subtleText} />
                     </>
                 )}
 
-                <Text style={styles.label}>備註</Text>
-                <TextInput style={styles.input} value={notes} onChangeText={setNotes} placeholder="選填" placeholderTextColor={colors.subtleText} />
+                <Text style={styles.label}>{i18n.t('transaction.note')}</Text>
+                <TextInput style={styles.input} value={notes} onChangeText={setNotes} placeholder={i18n.t('transaction.notePlaceholder')} placeholderTextColor={colors.subtleText} />
 
                 <View style={styles.syncContainer}>
-                    <Text style={styles.label}>同步至記帳 (支出)</Text>
+                    <Text style={styles.label}>{i18n.t('investment.syncToTransaction')}</Text>
                     <Switch value={syncToTransaction} onValueChange={setSyncToTransaction} />
                 </View>
                 {syncToTransaction && (
                     <View>
-                        <Text style={styles.label}>扣款帳戶</Text>
+                        <Text style={styles.label}>{i18n.t('investment.sourceAccount')}</Text>
                         <View style={styles.pickerContainer}>
                             <Picker selectedValue={sourceAccountId} onValueChange={(itemValue) => setSourceAccountId(itemValue)} style={{ color: colors.text }}>
                                 {accounts.map(acc => (<Picker.Item key={acc.id} label={`${acc.name} (${acc.currency})`} value={acc.id} />))}
@@ -267,7 +268,7 @@ export default function AddInvestmentModal({
                     </View>
                 )}
                 <TouchableOpacity style={styles.submitButton} onPress={handleAddInvestment}>
-                    <Text style={styles.submitButtonText}>新增投資</Text>
+                    <Text style={styles.submitButtonText}>{i18n.t('investment.addTitle')}</Text>
                 </TouchableOpacity>
                 <View style={{ height: 50 }} />
             </ScrollView>
@@ -288,7 +289,7 @@ export default function AddInvestmentModal({
                                 style={[styles.button, styles.confirmButton, { marginTop: 20, width: '100%' }]}
                                 onPress={() => setShowDatePicker(false)}
                             >
-                                <Text style={styles.buttonText}>確定</Text>
+                                <Text style={styles.buttonText}>{i18n.t('investment.confirmDate')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

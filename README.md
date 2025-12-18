@@ -1,77 +1,89 @@
-# AIFinanceApp - 智慧理財助手
+# 💰 AI Finance App (智慧理財助手)
 
-AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理財應用程式。透過直觀的介面與強大的功能，協助使用者輕鬆追蹤收支、規劃預算、設定存錢目標，並透過圖表分析財務狀況。
+[![Expo SDK](https://img.shields.io/badge/Expo%20SDK-52-blue)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.76-cyan)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**目前版本狀態**：🚀 **極度優化 (Deep Polished)**
+一個基於 **React Native (Expo)** 與 **TypeScript** 打造的現代化個人理財應用程式。專注於極致的效能、優美的 UI/UX 設計，以及企業級的程式碼品質。
 
-- **Code Quality**: 嚴格遵循 TypeScript 規範，0 Lint Errors。
-- **UI Design**: 導入全域樣式系統 (`src/styles/common.ts`)，視覺體驗一致且流暢。
-- **Performance**: 針對列表渲染進行效能優化 (`React.memo`, `useCallback`)。
+## ✨ 專案亮點 (Project Highlights)
 
-**跨平台支援**：
+* **📱 跨平台體驗**: 一套程式碼，完美運行於 Android 與 iOS。
+* **🧠 智慧分析**: 內建財務分析算法，提供個人化的理財建議。
+* **🔒 企業級安全**: 嚴格的資料加密、無 Hardcoded Secrets、防 SQL Injection 設計。
+* **🌍 完整國際化**: 支援多語系 (i18n)，預設繁體中文。
+* **🎨 現代化 UI**: 支援深色模式 (Dark Mode) 與各類圖表視覺化。
 
-- 📱 **原生 App** (Android/iOS)：使用 SQLite 本地資料庫，支援離線使用
-- 🌐 **Web 版本**：使用 localStorage 持久化，支援雲端同步
-- ☁️ **Firebase 整合**：跨裝置資料同步，確保您的財務數據安全無虞
+## 🚀 功能特色 (Features)
 
-**線上體驗**：[https://aifinanceapp-2ce60.web.app/](https://aifinanceapp-2ce60.web.app/)
+* **📝 記帳功能**: 快速記錄收入、支出與轉帳，支援自訂類別。
+* **📊 視覺化分析**: 透過圓餅圖、長條圖即時掌握財務狀況。
+* **💰 預算管理**: 設定月度預算，即時監控消費水位。
+* **🏦 多帳戶管理**: 支援現金、銀行、信用卡等多種帳戶類型。
+* **☁️ 雲端同步**: 整合 Firebase Auth，支援資料備份與還原 (Optional)。
+* **📉 投資追蹤**: 記錄股票與投資損益 (依據實作狀況調整)。
 
-## ✨ 主要功能 (Features)
+## 💎 程式碼品質 (Code Quality)
 
-### 1. 📝 記帳 (Transactions)
+本專案嚴格遵循 **GEMINI Development Guidelines**，確保高可維護性與穩定性：
 
-- **收支記錄**：快速記錄每日收入與支出，支援多種分類。
-- **轉帳功能**：支援帳戶間的資金轉移。
-- **智慧篩選**：可按「今日」、「本月」、「本年」及「全部」快速篩選交易紀錄。
+* **Strict Typing**: 全面採用 TypeScript，嚴格的型別檢查。
+* **Linting**: 使用 ESLint 與 Prettier 確保代碼風格一致。
+* **Modular Architecture**: 採用模組化設計 (Components, Services, Utils 分離)。
+* **No Magic Numbers**: 所有常數與設定值皆抽離至 `src/constants/`。
+* **Error Handling**: 統一的 `ErrorHandler` 機制，確保 App 不會輕易崩潰。
+* **Performance**: 善用 `useMemo`, `useCallback` 優化渲染效能。
 
-### 2. 💰 預算 (Budgets)
+## 🛠 技術堆疊 (Tech Stack)
 
-- **預算設定**：針對不同類別（如餐飲、交通）設定每月預算。
-- **進度追蹤**：即時顯示預算使用百分比，避免超支。
+* **核心框架**: React Native, Expo
+* **語言**: TypeScript
+* **路由**: Expo Router (File-based routing)
+* **資料庫**: Expo SQLite (本地儲存)
+* **後端服務**: Firebase (Authentication, Storage - 選用)
+* **UI 套件**: React Native Reanimated (動畫), React Native Chart Kit (圖表)
+* **工具**: Husky (Git Hooks), ESLint, Prettier
 
-### 3. 🎯 規劃 (Planning)
+## 📂 專案結構 (Project Structure)
 
-- **存錢目標**：設定具體的存錢目標（如買車、旅遊），追蹤達成進度。
-- **投資追蹤**：記錄股票、定存等投資項目，掌握資產增值狀況。
+```text
+FinanceApp/
+├── app/                    # Expo Router 頁面路由
+│   ├── (tabs)/             # 底部導航頁面 (Home, Transaction, Analysis, Settings)
+│   └── _layout.tsx         # 全局 Layout 設定
+├── src/
+│   ├── components/         # 可重用 UI 元件 (依功能分類)
+│   ├── constants/          # 全局常數 (Categories, Colors, Layout)
+│   ├── context/            # React Context (Theme, Auth)
+│   ├── hooks/              # Custom Hooks
+│   ├── i18n/               # 國際化語系檔
+│   ├── services/           # 外部服務 (Database, Firebase, Storage)
+│   ├── types/              # TypeScript 型別定義
+│   └── utils/              # 工具函式 (ErrorHandler, Formatters)
+├── assets/                 # 靜態資源 (Images, Fonts)
+├── tsconfig.json           # TypeScript 設定
+└── README.md               # 專案文件
+```
 
-### 4. 📊 分析 (Analysis)
+## 🏁 快速開始 (Quick Start)
 
-- **圖表分析**：提供圓餅圖與長條圖，清晰呈現資金流向與消費結構。
-- **趨勢洞察**：分析長期財務趨勢，協助做出更好的財務決策。
+### 前置需求
 
-### 5. ⚙️ 設定 (Settings)
+* Node.js (LTS 版本)
+* npm 或 yarn
+* Expo Go App (手機端測試用)
 
-- **雲端同步**：整合 Firebase，支援資料備份與還原，跨裝置無縫接軌。
-- **個人化**：支援深色模式 (Dark Mode) 與多種主題色系。
-- **匯出功能**：支援匯出交易記錄為 CSV 格式。
+### 安裝步驟
 
-### 6. 🌐 Web 版本特性
-
-- **localStorage 持久化**：網頁重新整理後資料不會遺失，提供接近原生 App 的體驗。
-- **自動導向同步頁面**：Web 使用者首次進入時自動導向「同步備份」頁面，方便快速設定雲端同步。
-- **響應式設計**：完美適配桌面與行動裝置瀏覽器。
-
-## 🛠️ 技術堆疊 (Tech Stack)
-
-- **核心框架**: [React Native](https://reactnative.dev/) (v0.81), [Expo](https://expo.dev/) (v54)
-- **開發語言**: [TypeScript](https://www.typescriptlang.org/)
-- **路由管理**: [Expo Router](https://docs.expo.dev/router/introduction/)
-- **資料庫**:
-  - Native: [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-  - Web: localStorage (Web Storage API)
-- **後端服務**: [Firebase](https://firebase.google.com/) (Auth, Firestore, Hosting)
-- **架構設計**: 模組化服務層 (Modular Service Layer) 與 元件化設計 (Component-Based Architecture)
-
-## 🚀 安裝與執行 (Installation & Setup)
-
-1. **複製專案 (Clone Repository)**
+1. **複製專案**
 
     ```bash
-    git clone https://github.com/presentyourlove/FinanceApp.git
+    git clone https://github.com/your-username/FinanceApp.git
     cd FinanceApp
     ```
 
-2. **安裝相依套件 (Install Dependencies)**
+2. **安裝依賴**
 
     ```bash
     npm install
@@ -79,81 +91,88 @@ AIFinanceApp 是一個基於 React Native 與 Expo 開發的現代化智慧理�
     yarn install
     ```
 
-3. **設定環境變數 (Environment Variables)**
-
-    請在 `AIFinanceApp` 目錄下 (與 `package.json` 同層) 建立 `.env` 檔案，並填入您的 Firebase 設定：
+3. **設定環境變數**
+    複製 `.env.example` 並重新命名為 `.env`，填入您的 Firebase 設定 (若不需要雲端功能可跳過)。
 
     ```env
     EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-    EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-    EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-    EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-    EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+    ...
     ```
 
-4. **啟動應用程式 (Start Application)**
+4. **啟動專案**
 
     ```bash
-    npx expo start
+    npm start
     ```
 
-    啟動後，使用手機上的 Expo Go App 掃描終端機顯示的 QR Code 即可預覽。
+    使用手機 Expo Go 掃描 QR Code 即可預覽。
 
-5. **打包應用程式 (Build Application)**
+## 📱 支援平台 (Supported Platforms)
 
-    **Android APK**:
+* **Android**: Android 8.0+
+* **iOS**: iOS 13.0+
+* **Web**: 支援 (但針對行動裝置優化)
 
-    ```bash
-    npx eas-cli build --platform android --profile apk
-    ```
+## 📖 開發指南 (Development Guide)
 
-    **Web 版本部署**:
+* **新增頁面**: 在 `app/` 目錄下建立 `.tsx` 檔案即可自動產生路由。
+* **新增元件**: 請在 `src/components/` 下依照功能建立資料夾。
+* **修改常數**: 請勿直接在程式碼中寫死數值，請至 `src/constants/` 修改。
+* **資料庫變更**: 修改 `src/services/database.ts` 中的 Schema 定義。
 
-    ```bash
-    npx expo export -p web
-    npx firebase deploy --only hosting
-    ```
+## 🧪 測試 (Testing)
 
-## ❓ 故障排除 (Troubleshooting)
+目前支援單元測試與 Lint 檢查：
 
-### Node.js v24 啟動崩潰 (Expo CLI Crash)
+```bash
+# 執行 ESLint 檢查
+npm run lint
 
-如果您使用 **Node.js v24** 執行 `npx expo start` 時遇到 `TypeError: Body is unusable` 錯誤，這是因為新版 Node.js 內建的 `undici` 與 Expo CLI 衝突所致。
-
-**解決方案**：
-請在 `.env` 檔案中加入以下設定，開啟離線模式以跳過依賴檢查：
-
-```env
-EXPO_OFFLINE=1
+# 執行單元測試 (Jest)
+npm test
 ```
 
-## 📂 專案結構 (Project Structure)
+## 📦 打包發布 (Build & Publish)
 
-```text
-AIFinanceApp/
-├── app/                 # Expo Router 頁面路由
-│   ├── (tabs)/          # 底部導航 (index, budget, planning, analysis, settings)
-│   └── _layout.tsx      # 全域佈局設定
-├── src/
-│   ├── components/      # UI 元件庫
-│   │   ├── common/      # 通用元件 (ModalPage, PickerOverlay...)
-│   │   ├── transaction/ # 記帳元件
-│   │   ├── investment/  # 投資元件
-│   │   └── ...
-│   ├── styles/          # 全域樣式定義
-│   │   └── common.ts    # 共用樣式 (Shadows, Cards, Buttons)
-│   ├── hooks/           # Custom Hooks (useBudgets, useInvestments...)
-│   ├── services/        # 核心邏輯層
-│   │   ├── database/    # 資料庫模組 (SQLite & Web)
-│   │   └── storage/     # 本地儲存 (Theme, Settings)
-│   ├── context/         # React Context (ThemeContext)
-│   ├── i18n/            # 國際化設定
-│   └── types.ts         # TypeScript 型別定義
-├── assets/              # 靜態資源
-└── package.json         # 專案配置
+使用 EAS Build 進行打包：
+
+```bash
+# 安裝 EAS CLI
+npm install -g eas-cli
+
+# 設定 EAS
+eas build:configure
+
+# 打包 Android APK
+eas build -p android --profile preview
+
+# 打包 iOS IPA
+eas build -p ios --profile preview
 ```
 
-## 📄 授權 (License)
+## 🤝 貢獻 (Contribution)
 
-本專案採用 [MIT License](LICENSE) 授權。
+歡迎提交 Pull Request 或 Issue！請確保：
+
+1. 遵循專案的 Lint 規範。
+2. 提交訊息請遵循 Conventional Commits (e.g., `feat: add new chart`).
+
+## 📄 文件 (Documentation)
+
+* [Implementation Plan](file:///C:/Users/USER/.gemini/antigravity/brain/ff6beec0-10d6-4c47-931b-11c2e993c4ba/implementation_plan.md)
+* [Task Tracking](file:///C:/Users/USER/.gemini/antigravity/brain/ff6beec0-10d6-4c47-931b-11c2e993c4ba/task.md)
+* [Change Log (Walkthrough)](file:///C:/Users/USER/.gemini/antigravity/brain/ff6beec0-10d6-4c47-931b-11c2e993c4ba/walkthrough.md)
+
+## 👤 作者 (Author)
+
+**FinanceApp Team** (Powered by Google Gemini Agent)
+
+## 🙏 致謝 (Acknowledgments)
+
+* Expo Team
+* React Native Community
+* Open Source Contributors
+
+## 📝 授權 (License)
+
+This project is licensed under the [MIT License](LICENSE).

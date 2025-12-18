@@ -10,7 +10,8 @@
         "error": "錯誤",
         "pleaseLogin": "請先登入帳號",
         "unknownError": "未知錯誤",
-        "warning": "警告"
+        "warning": "警告",
+        "others": "其他"
     },
     "transaction": {
         "income": "收入",
@@ -20,7 +21,48 @@
         "categoryPlaceholder": "請輸入類別 (例如: 午餐、薪水)",
         "date": "日期",
         "note": "備註",
-        "notePlaceholder": "選填"
+        "notePlaceholder": "選填",
+        "invalidInput": "無效輸入",
+        "invalidAmount": "請輸入有效的正數金額。",
+        "selectAccountError": "錯誤",
+        "selectAccountErrorMsg": "請先選擇一個帳本。",
+        "accountNotFound": "找不到帳本",
+        "success": "成功",
+        "recordSuccess": "{type} NT$ {amount} 已記錄!",
+        "fail": "交易失敗",
+        "failMsg": "處理交易時發生錯誤。",
+        "invalidOp": "無效操作",
+        "invalidTransferAmount": "請輸入有效金額。",
+        "invalidTransferTarget": "請確保轉出與轉入帳本不同且已選定。",
+        "insufficientBalance": "餘額不足",
+        "insufficientBalanceMsg": "轉出帳本餘額不足。",
+        "transferSuccess": "NT$ {amount} 已從 {source} 轉出至 {target}。",
+        "transferFail": "轉帳失敗",
+        "transferFailMsg": "處理轉帳時發生錯誤。",
+        "transferEditHint": "提示",
+        "transferEditMsg": "轉帳記錄目前不支援直接編輯，請刪除後重新建立。",
+        "updateHeader": "編輯交易",
+        "updateSuccess": "交易已更新!",
+        "updateFail": "更新失敗",
+        "updateFailMsg": "處理交易更新時發生錯誤。",
+        "deleteHeader": "刪除交易",
+        "deleteConfirm": "確定要刪除這筆交易嗎？",
+        "deleteSuccess": "交易已刪除!",
+        "deleteFail": "刪除失敗",
+        "deleteFailMsg": "處理交易刪除時發生錯誤。",
+        "transferUpdateSuccess": "轉帳記錄已更新",
+        "transferUpdateFail": "錯誤",
+        "transferUpdateFailMsg": "更新轉帳失敗",
+        "filters": {
+            "all": "全部",
+            "year": "今年",
+            "month": "本月",
+            "day": "今天"
+        },
+        "recentTransactions": "近期交易",
+        "noTransactions": "無交易紀錄",
+        "selectCategory": "請選擇類別",
+        "cancel": "取消"
     },
     "budget": {
         "selectCategory": "選擇類別",
@@ -43,7 +85,9 @@
         "errorMissingFields": "請輸入類別和金額",
         "saveFail": "儲存預算失敗",
         "deleteTitle": "刪除預算",
-        "deleteConfirm": "確定要刪除這個預算嗎？"
+        "deleteConfirm": "確定要刪除這個預算嗎？",
+        "title": "預算管理",
+        "saveSuccess": "儲存成功"
     },
     "goal": {
         "errorTitle": "錯誤",
@@ -87,7 +131,8 @@
         "account": "帳本管理",
         "currency": "匯率管理",
         "theme": "主題設定",
-        "sync": "同步備份"
+        "sync": "同步備份",
+        "syncTitle": "雲端同步"
     },
     "backup": {
         "uploadSuccess": "備份已上傳至雲端",
@@ -166,6 +211,38 @@
         "emptyList": "尚無投資項目",
         "stock": "股票",
         "fixedDeposit": "定存",
-        "savings": "活存"
+        "savings": "活存",
+        "nameLabel": "名稱 (代號)",
+        "dateLabel": "購買/開始日期",
+        "syncToTransaction": "同步至記帳 (支出)",
+        "sourceAccount": "扣款帳戶",
+        "confirmDate": "確定",
+        "holdings": "{name} 持倉明細",
+        "updatePrice": "更新現價",
+        "cost": "成本",
+        "unitPrice": "單價",
+        "shares": "股"
+    },
+    "analysis": {
+        "title": "財務分析",
+        "switchToYear": "切換至年檢視",
+        "switchToMonth": "切換至月檢視",
+        "income": "收入",
+        "expense": "支出",
+        "monthlyIncome": "當月收入",
+        "monthlyExpense": "當月支出",
+        "yearlyIncome": "當年收入",
+        "yearlyExpense": "當年支出",
+        "spendingRatio": "支出佔比",
+        "noChartData": "尚無支出資料可顯示圖表",
+        "advice": "理財建議",
+        "topCategories": "最高花費類別",
+        "thisMonth": "本月",
+        "thisYear": "今年",
+        "noData": "尚無支出資料",
+        "adviceOverSpent": "⚠️ {period}支出已超過收入，建議檢視非必要開銷。",
+        "adviceHighSpent": "⚠️ {period}支出已達收入的 80%，請注意控制預算。",
+        "adviceGood": "✅ {period}財務狀況良好，繼續保持！",
+        "adviceTopCategory": "💡 您在「{category}」類別花費最多，建議設定預算上限。"
     }
 }
