@@ -1,3 +1,4 @@
+{
     "common": {
         "save": "儲存",
         "cancel": "取消",
@@ -27,6 +28,8 @@
         "selectAccountError": "錯誤",
         "selectAccountErrorMsg": "請先選擇一個帳本。",
         "accountNotFound": "找不到帳本",
+        "transferTo": "轉出至 {account}",
+        "transferFrom": "轉入自 {account}",
         "success": "成功",
         "recordSuccess": "{type} NT$ {amount} 已記錄!",
         "fail": "交易失敗",
@@ -182,6 +185,7 @@
         "cannotDeleteHasTrans": "此帳本仍有交易記錄，請先清除相關交易。",
         "addTitle": "新增帳本",
         "existingTitle": "現有帳本",
+        "unknown": "未知帳本",
         "namePlaceholder": "帳本名稱",
         "balancePlaceholder": "初始餘額",
         "addButton": "新增帳本"
@@ -218,10 +222,7 @@
         "sourceAccount": "扣款帳戶",
         "confirmDate": "確定",
         "holdings": "{name} 持倉明細",
-        "updatePrice": "更新現價",
-        "cost": "成本",
-        "unitPrice": "單價",
-        "shares": "股"
+        "updatePrice": "更新現價"
     },
     "analysis": {
         "title": "財務分析",

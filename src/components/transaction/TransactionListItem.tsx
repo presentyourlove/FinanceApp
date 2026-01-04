@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Transaction, TransactionType, Account } from '@/src/types';
+import i18n from '@/src/i18n';
+import { formatCurrency, formatDate } from '@/src/utils/formatters';
 
 interface TransactionListItemProps {
     item: Transaction;
@@ -20,17 +22,17 @@ export const TransactionListItem: React.FC<TransactionListItemProps> = React.mem
     onPress
 }) => {
     const isTransfer = item.type === TransactionType.TRANSFER;
-    const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
-    const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || '未知帳本';
+    const sourceAccountName = accounts.find(acc => acc.id === item.accountId)?.name || i18n.t('account.unknown');
+    const targetAccountName = accounts.find(acc => acc.id === item.targetAccountId)?.name || i18n.t('account.unknown');
 
     let amountSign: string, amountColor: string, descriptionText: string;
     if (isTransfer) {
         if (item.accountId === selectedAccountId) {
             amountSign = '-';
-            descriptionText = `轉出至 ${targetAccountName}`;
+            descriptionText = i18n.t('transaction.transferTo', { account: targetAccountName });
         } else {
             amountSign = '+';
-            descriptionText = `轉入自 ${sourceAccountName}`;
+            descriptionText = i18n.t('transaction.transferFrom', { account: sourceAccountName });
         }
         amountColor = colors.transfer;
     } else {
@@ -39,16 +41,16 @@ export const TransactionListItem: React.FC<TransactionListItemProps> = React.mem
         descriptionText = item.description;
     }
 
-    const displayAccountName = accounts.find(acc => acc.id === item.accountId)?.name || '未知帳本';
+    const displayAccountName = accounts.find(acc => acc.id === item.accountId)?.name || i18n.t('account.unknown');
     const accountCurrency = accounts.find(acc => acc.id === item.accountId)?.currency || 'TWD';
 
     return (
         <TouchableOpacity style={styles.listItem} onPress={() => onPress(item)}>
             <View style={styles.listItemTextContainer}>
                 <Text style={styles.listItemType} numberOfLines={1}>{descriptionText}</Text>
-                <Text style={styles.listItemDate}>{displayAccountName} · {new Date(item.date).toLocaleDateString()}</Text>
+                <Text style={styles.listItemDate}>{displayAccountName} · {formatDate(item.date)}</Text>
             </View>
-            <Text style={[styles.listItemAmount, { color: amountColor }]}>{`${amountSign} ${accountCurrency} ${item.amount.toFixed(2)}`}</Text>
+            <Text style={[styles.listItemAmount, { color: amountColor }]}>{`${amountSign} ${formatCurrency(item.amount, accountCurrency)}`}</Text>
         </TouchableOpacity>
     );
 });
