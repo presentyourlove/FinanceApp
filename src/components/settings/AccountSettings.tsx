@@ -77,6 +77,32 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onBack, colors
         }
     };
 
+    const handleMoveUp = async (index: number) => {
+        if (index <= 0) return;
+        const newAccounts = [...accounts];
+        [newAccounts[index - 1], newAccounts[index]] = [newAccounts[index], newAccounts[index - 1]];
+        setAccounts(newAccounts);
+        try {
+            await dbOperations.updateAccountOrderDB(newAccounts);
+        } catch (error) {
+            console.error("Failed to update order:", error);
+            loadAccounts(); // Revert
+        }
+    };
+
+    const handleMoveDown = async (index: number) => {
+        if (index >= accounts.length - 1) return;
+        const newAccounts = [...accounts];
+        [newAccounts[index], newAccounts[index + 1]] = [newAccounts[index + 1], newAccounts[index]];
+        setAccounts(newAccounts);
+        try {
+            await dbOperations.updateAccountOrderDB(newAccounts);
+        } catch (error) {
+            console.error("Failed to update order:", error);
+            loadAccounts(); // Revert
+        }
+    };
+
     const getCurrencyLabel = (code: string) => {
         const labels: { [key: string]: string } = {
             'TWD': 'TWD - 新台幣',
@@ -152,12 +178,32 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onBack, colors
 
                 <Text style={styles.subtitle}>{i18n.t('account.existingTitle')}</Text>
                 <View style={styles.card}>
-                    {accounts?.map((acc: Account) => (
+                    {accounts?.map((acc: Account, index: number) => (
                         <View key={acc.id} style={styles.settingListItem}>
-                            <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
-                            <TouchableOpacity onPress={() => handleDeleteAccount(acc.id)}>
-                                <Ionicons name="trash" size={20} color={colors.expense} />
-                            </TouchableOpacity>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.settingItemText}>{acc.name} ({acc.currency})</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <TouchableOpacity
+                                    onPress={() => handleMoveUp(index)}
+                                    style={{ marginRight: 10, opacity: index === 0 ? 0.3 : 1 }}
+                                    disabled={index === 0}
+                                    testID={`move-up-${index}`}
+                                >
+                                    <Ionicons name="chevron-up" size={24} color={colors.text} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleMoveDown(index)}
+                                    style={{ marginRight: 15, opacity: index === accounts.length - 1 ? 0.3 : 1 }}
+                                    disabled={index === accounts.length - 1}
+                                    testID={`move-down-${index}`}
+                                >
+                                    <Ionicons name="chevron-down" size={24} color={colors.text} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteAccount(acc.id)}>
+                                    <Ionicons name="trash" size={20} color={colors.expense} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     ))}
                 </View>

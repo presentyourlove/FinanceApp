@@ -68,9 +68,22 @@ export const initDatabase = async (skipDefaultData: boolean = false) => {
         name TEXT NOT NULL,
         initialBalance REAL NOT NULL,
         currentBalance REAL NOT NULL,
-        currency TEXT DEFAULT 'TWD'
+        currency TEXT DEFAULT 'TWD',
+        sortIndex INTEGER DEFAULT 0
       );
     `);
+
+    // --- Migration: Add sortIndex column if missing ---
+    try {
+      const accountCols = getRowsSync("PRAGMA table_info(accounts);") as any[];
+      if (!accountCols.some(col => col.name === 'sortIndex')) {
+        runSqlSync("ALTER TABLE accounts ADD COLUMN sortIndex INTEGER DEFAULT 0;");
+        console.info("Added sortIndex column to accounts table.");
+      }
+    } catch (e) {
+      console.error("Error migrating accounts table:", e);
+    }
+
 
     // 建立交易表 (Transactions)
     runSqlSync(`

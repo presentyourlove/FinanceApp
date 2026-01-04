@@ -1,5 +1,5 @@
 import { initDatabase, addDataChangeListener, removeDataChangeListener, notifyListeners, runSqlSync } from './core';
-import { getAccounts, updateAccountBalanceDB, addAccountDB, deleteAccountDB, importAccountDB } from './accounts';
+import { getAccounts, updateAccountBalanceDB, addAccountDB, deleteAccountDB, importAccountDB, updateAccountOrderDB } from './accounts';
 import { addTransactionDB, updateTransactionDB, deleteTransactionDB, performTransfer, updateTransfer, getTransactionsByAccountDB, getTransactionsWithAccount, getAllTransactionsDB, importTransactionDB, getCategorySpending, getDistinctCategories } from './transactions';
 import { getBudgets, addBudget, updateBudget, deleteBudget, importBudgetDB } from './budgets';
 import { getGoals, addGoal, updateGoalAmount, updateGoal, deleteGoal, importGoalDB } from './goals';
@@ -29,6 +29,7 @@ export const dbOperations = {
     getTransactionsWithAccount,
     addAccountDB,
     deleteAccountDB,
+    updateAccountOrderDB,
     // Budgets
     getBudgets,
     addBudget,

@@ -4,6 +4,7 @@ export interface Account {
     initialBalance: number;
     currentBalance: number;
     currency: string;
+    sortIndex?: number;
 }
 
 export enum TransactionType {

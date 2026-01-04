@@ -6,7 +6,7 @@ import { Account } from '@/src/types';
  */
 export const getAccounts = async (): Promise<Account[]> => {
     // 返回行陣列
-    const rows = getRowsSync('SELECT * FROM accounts ORDER BY id ASC;') as any[];
+    const rows = getRowsSync('SELECT * FROM accounts ORDER BY sortIndex ASC, id ASC;') as any[];
 
     return rows.map((row: any) => ({
         id: row.id,
@@ -14,6 +14,7 @@ export const getAccounts = async (): Promise<Account[]> => {
         initialBalance: row.initialBalance,
         currentBalance: row.currentBalance,
         currency: row.currency || 'TWD',
+        sortIndex: row.sortIndex
     }));
 };
 
@@ -32,13 +33,39 @@ export const updateAccountBalanceDB = async (id: number, newBalance: number) => 
  * 新增一個帳本
  */
 export const addAccountDB = async (name: string, initialBalance: number, currency: string = 'TWD') => {
+    // 找出目前最大的 sortIndex
+    const resCount = getRowsSync('SELECT MAX(sortIndex) as maxIndex FROM accounts;') as any[];
+    const maxIndex = (resCount && resCount.length > 0 && resCount[0].maxIndex !== null) ? resCount[0].maxIndex : -1;
+    const nextIndex = maxIndex + 1;
+
     const res = runSqlSync(
-        `INSERT INTO accounts (name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?);`,
-        [name, initialBalance, initialBalance, currency]
+        `INSERT INTO accounts (name, initialBalance, currentBalance, currency, sortIndex) VALUES (?, ?, ?, ?, ?);`,
+        [name, initialBalance, initialBalance, currency, nextIndex]
     );
     const result = res && res.lastInsertRowId || Date.now();
     notifyListeners();
     return result;
+};
+
+/**
+ * 更新帳本排序
+ */
+export const updateAccountOrderDB = async (accounts: Account[]) => {
+    runSqlSync('BEGIN TRANSACTION;');
+    try {
+        for (let i = 0; i < accounts.length; i++) {
+            runSqlSync(
+                `UPDATE accounts SET sortIndex = ? WHERE id = ?;`,
+                [i, accounts[i].id]
+            );
+        }
+        runSqlSync('COMMIT;');
+        notifyListeners();
+    } catch (e) {
+        runSqlSync('ROLLBACK;');
+        console.error("Error updating account order:", e);
+        throw e;
+    }
 };
 
 /**
