@@ -133,7 +133,32 @@ npm run lint
 npm test
 ```
 
-## 📦 打包發布 (Build & Publish)
+## � CI/CD 自動化測試 (Continuous Integration)
+
+本專案已配置完整的 GitHub Actions 工作流程，每次 push 或 pull request 都會自動執行以下檢查：
+
+* **TypeScript 類型檢查**: `npm run type-check`
+* **ESLint 程式碼檢查**: `npm run lint`  
+* **Jest 單元測試**: `npm run test:ci`（含覆蓋率報告）
+
+### CI 狀態徽章
+
+專案頂部的 CI 徽章會顯示最新的測試狀態。如需更新徽章 URL，請將 `YOUR_USERNAME` 替換為您的 GitHub 使用者名稱。
+
+### 本地執行 CI 檢查
+
+```bash
+# TypeScript 類型檢查
+npm run type-check
+
+# ESLint 檢查
+npm run lint
+
+# 執行測試（CI 模式）
+npm run test:ci
+```
+
+## �📦 打包發布 (Build & Publish)
 
 使用 EAS Build 進行打包：
 
