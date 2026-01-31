@@ -111,7 +111,7 @@ FinanceApp/
 
 * **Android**: Android 8.0+
 * **iOS**: iOS 13.0+
-* **Web**: 支援 (但針對行動裝置優化)
+* **Web**: 暫不支援 (需解決 expo-sqlite 相容性問題)
 
 ## 📖 開發指南 (Development Guide)
 
@@ -131,6 +131,23 @@ npm run lint
 # 執行單元測試 (Jest)
 npm test
 ```
+
+## 🔮 未來優化方向 (Optimization Roadmap)
+
+本專案經過分析，建議進行以下優化以提升效能與跨平台支援度：
+
+1. **列表渲染效能 (List Performance)**:
+    * 目前使用 `FlatList`。建議遷移至 `@shopify/flash-list`，預期可顯著提升長列表 (BudgetList, TransactionList) 的滾動流暢度與記憶體效率。
+
+2. **Web 端資料庫適配 (Database Adapter for Web)**:
+    * **現況**: `expo-sqlite` 不支援 Web 環境，導致 Web App 無法運作。
+    * **建議**: 重構 `src/services/database/core.ts` 採用「儲存庫模式 (Repository Pattern)」。Native 端維持 SQLite，Web 端實作 IndexedDB 適配器 (如使用 `localforage`)。
+
+3. **圖片載入優化 (Image Optimization)**:
+    * 建議引入 `expo-image` 取代原生 `<Image />`，提供更好的緩存管理、各種圖片格式支援 (WebP) 與漸進式載入效果。
+
+4. **相依性管理 (Dependency Check)**:
+    * 檢查 `react-native-svg` 版本與 Expo SDK 的相容性，確保 Web 端渲染一致性。
 
 ## 📦 打包發布 (Build & Publish)
 
