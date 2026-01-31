@@ -186,6 +186,7 @@ eas build -p ios --profile preview
 ### 訪問 Web App
 
 部署後的 Web 應用程式可在以下網址訪問：
+
 * **GitHub Pages**: <https://presentyourlove.github.io/FinanceApp/>
 
 ### 手動部署
@@ -203,7 +204,7 @@ eas build -p ios --profile preview
 npm run web
 
 # 建置 Web 生產版本
-npx expo export:web
+npx expo export --platform web
 # 輸出目錄：dist/
 ```
 
