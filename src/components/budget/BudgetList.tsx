@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { Budget } from '@/src/services/database';
 import i18n from '@/src/i18n';
@@ -59,12 +60,13 @@ export const BudgetList: React.FC<BudgetListProps> = ({
     };
 
     return (
-        <FlatList
+        <FlashList
             data={budgets}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('budget.emptyList')}</Text>}
+            estimatedItemSize={150}
         />
     );
 };

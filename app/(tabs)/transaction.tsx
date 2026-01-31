@@ -3,10 +3,10 @@ import {
   Text,
   View,
   Alert,
-  FlatList,
   Keyboard,
   Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import i18n from '@/src/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -351,7 +351,7 @@ export default function TransactionScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={filteredTransactions}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
@@ -359,6 +359,7 @@ export default function TransactionScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('transaction.noTransactions')}</Text>}
         contentContainerStyle={{ paddingBottom: 100 }}
         keyboardDismissMode="on-drag"
+        estimatedItemSize={70}
       />
       <TransferModal
         visible={isTransferModalVisible}

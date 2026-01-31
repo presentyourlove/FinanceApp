@@ -111,7 +111,7 @@ FinanceApp/
 
 * **Android**: Android 8.0+
 * **iOS**: iOS 13.0+
-* **Web**: 暫不支援 (需解決 expo-sqlite 相容性問題)
+* **Web**: 支援 (已實作 Repository Pattern 與 IndexedDB 適配)
 
 ## 📖 開發指南 (Development Guide)
 
@@ -132,22 +132,31 @@ npm run lint
 npm test
 ```
 
-## 🔮 未來優化方向 (Optimization Roadmap)
+## 🔮 優化狀態 (Optimization Status)
 
-本專案經過分析，建議進行以下優化以提升效能與跨平台支援度：
+本專案已完成主要優化項目，達到良好的效能與跨平台支援度：
 
-1. **列表渲染效能 (List Performance)**:
-    * 目前使用 `FlatList`。建議遷移至 `@shopify/flash-list`，預期可顯著提升長列表 (BudgetList, TransactionList) 的滾動流暢度與記憶體效率。
+### ✅ 已完成優化
 
-2. **Web 端資料庫適配 (Database Adapter for Web)**:
-    * **現況**: `expo-sqlite` 不支援 Web 環境，導致 Web App 無法運作。
-    * **建議**: 重構 `src/services/database/core.ts` 採用「儲存庫模式 (Repository Pattern)」。Native 端維持 SQLite，Web 端實作 IndexedDB 適配器 (如使用 `localforage`)。
+1. **✅ 列表渲染效能 (List Performance)**:
+    * 已將 `BudgetList` 與 `TransactionList` 遷移至 `@shopify/flash-list`，顯著提升長列表的滾動流暢度與記憶體效率。
+    * 實作檔案：`src/components/budget/BudgetList.tsx`、`app/(tabs)/transaction.tsx`
 
-3. **圖片載入優化 (Image Optimization)**:
-    * 建議引入 `expo-image` 取代原生 `<Image />`，提供更好的緩存管理、各種圖片格式支援 (WebP) 與漸進式載入效果。
+2. **✅ Web 端資料庫適配 (Database Adapter for Web)**:
+    * 已實作「儲存庫模式 (Repository Pattern)」，成功支援跨平台資料存取。
+    * Native 端使用 SQLite (`expo-sqlite`)
+    * Web 端使用 IndexedDB (透過 `localforage`)
+    * 架構：`src/services/repositories/` (interfaces, sqlite/, web/)
 
-4. **相依性管理 (Dependency Check)**:
-    * 檢查 `react-native-svg` 版本與 Expo SDK 的相容性，確保 Web 端渲染一致性。
+### 📝 優化說明
+
+1. **圖片載入優化 (N/A)**:
+    * 經掃描確認，專案目前未使用原生 `<Image>` 元件（主要使用 SVG 圖標），無需進行 `expo-image` 遷移。
+
+2. **相依性管理**:
+    * `react-native-svg` 版本與 Expo SDK 相容性良好，Web 端渲染正常。
+
+> **注意**: 專案已達到優化邊際效應，建議將重心轉向功能開發與使用者體驗提升，避免過度優化。
 
 ## 📦 打包發布 (Build & Publish)
 
