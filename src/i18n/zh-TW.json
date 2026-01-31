@@ -172,9 +172,15 @@
         "saveSuccess": "匯率設定已儲存。",
         "title": "匯率設定",
         "code": "幣別",
-        "base": "主幣別",
+        "base": "主幣別 (舊)",
+        "mainCurrency": "幣別",
         "rate": "匯率",
         "saveButton": "儲存設定"
+    },
+    "theme": {
+        "title": "主題設定",
+        "light": "淺色模式",
+        "dark": "深色模式"
     },
     "category": {
         "addSuccess": "備註「{{category}}」已加入{{type}} 列表！",
