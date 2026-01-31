@@ -10,11 +10,14 @@
 
 ## ✨ 專案亮點 (Project Highlights)
 
-* **📱 跨平台體驗**: 一套程式碼，完美運行於 Android 與 iOS。
-* **🧠 智慧分析**: 內建財務分析算法，提供個人化的理財建議。
-* **🔒 企業級安全**: 嚴格的資料加密、無 Hardcoded Secrets、防 SQL Injection 設計。
-* **🌍 完整國際化**: 支援多語系 (i18n)，預設繁體中文。
-* **🎨 現代化 UI**: 支援深色模式 (Dark Mode) 與各類圖表視覺化。
+* **🏗️ Repository Pattern**: 採用儲存庫模式 (Repository Pattern)，實現跨平台資料存取。Native 端使用 SQLite，Web 端使用 IndexedDB (透過 `localforage`)，確保程式碼高內聚低耦合。
+* **⚡ FlashList 優化**: 使用 `@shopify/flash-list` 取代原生 FlatList，顯著提升列表滾動流暢度與記憶體效率。
+* **� CI/CD 自動化**: 完整的 GitHub Actions 工作流程，自動執行 TypeScript 類型檢查、ESLint 與 Jest 測試。
+* **🎨 Dark Mode 支援**: 透過 Context API 實作主題切換，支援亮色與暗色模式。
+* **📊 多幣別支援**: 支援 TWD, USD, JPY, CNY 等多種貨幣，並提供匯率設定功能。
+* **🔒 Type Safety**: 全專案採用 TypeScript，100% 通過類型檢查，確保類型安全與開發體驗。
+* **✅ 單元測試**: 使用 Jest 與 React Testing Library 進行元件與邏輯測試。
+* **� 跨平台支援**: 同時支援 iOS、Android 與 Web 平台。
 
 ## 🚀 功能特色 (Features)
 
