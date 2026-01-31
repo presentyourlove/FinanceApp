@@ -4,7 +4,7 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-cyan)](https://reactnative.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![CI](https://github.com/YOUR_USERNAME/FinanceApp/workflows/CI/badge.svg)
+![CI](https://github.com/presentyourlove/FinanceApp/workflows/CI/badge.svg)
 
 一個基於 **React Native (Expo)** 與 **TypeScript** 打造的現代化個人理財應用程式。專注於極致的效能、優美的 UI/UX 設計，以及企業級的程式碼品質。
 
@@ -132,32 +132,6 @@ npm run lint
 # 執行單元測試 (Jest)
 npm test
 ```
-
-## 🔮 優化狀態 (Optimization Status)
-
-本專案已完成主要優化項目，達到良好的效能與跨平台支援度：
-
-### ✅ 已完成優化
-
-1. **✅ 列表渲染效能 (List Performance)**:
-    * 已將 `BudgetList` 與 `TransactionList` 遷移至 `@shopify/flash-list`，顯著提升長列表的滾動流暢度與記憶體效率。
-    * 實作檔案：`src/components/budget/BudgetList.tsx`、`app/(tabs)/transaction.tsx`
-
-2. **✅ Web 端資料庫適配 (Database Adapter for Web)**:
-    * 已實作「儲存庫模式 (Repository Pattern)」，成功支援跨平台資料存取。
-    * Native 端使用 SQLite (`expo-sqlite`)
-    * Web 端使用 IndexedDB (透過 `localforage`)
-    * 架構：`src/services/repositories/` (interfaces, sqlite/, web/)
-
-### 📝 優化說明
-
-1. **圖片載入優化 (N/A)**:
-    * 經掃描確認，專案目前未使用原生 `<Image>` 元件（主要使用 SVG 圖標），無需進行 `expo-image` 遷移。
-
-2. **相依性管理**:
-    * `react-native-svg` 版本與 Expo SDK 相容性良好，Web 端渲染正常。
-
-> **注意**: 專案已達到優化邊際效應，建議將重心轉向功能開發與使用者體驗提升，避免過度優化。
 
 ## 📦 打包發布 (Build & Publish)
 
