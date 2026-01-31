@@ -8,11 +8,7 @@ const KEY_ACCOUNTS = 'accounts'; // Needed for transfers
 export class WebTransactionRepository implements ITransactionRepository {
     private async getTransactions(): Promise<Transaction[]> {
         const data = await localforage.getItem<Transaction[]>(KEY_TRANSACTIONS);
-        // Date strings need to be converted back to Date objects if stored as JSON
-        return (data || []).map(t => ({
-            ...t,
-            date: new Date(t.date)
-        }));
+        return data || [];
     }
 
     private async saveTransactions(transactions: Transaction[]) {
@@ -33,6 +29,7 @@ export class WebTransactionRepository implements ITransactionRepository {
         const newTrans: Transaction = {
             ...t,
             id: maxId + 1,
+            date: t.date.toISOString(),
             targetAccountId: t.targetAccountId || undefined // ensure undefined if null
         };
         transactions.push(newTrans);
@@ -44,7 +41,7 @@ export class WebTransactionRepository implements ITransactionRepository {
         const transactions = await this.getTransactions();
         const index = transactions.findIndex(t => t.id === id);
         if (index !== -1) {
-            transactions[index] = { ...transactions[index], amount, type, date, description };
+            transactions[index] = { ...transactions[index], amount, type, date: date.toISOString(), description };
             await this.saveTransactions(transactions);
         }
     }
@@ -117,7 +114,7 @@ export class WebTransactionRepository implements ITransactionRepository {
         const transactions = await this.getTransactions();
         return transactions
             .filter(t => t.accountId === accountId || t.targetAccountId === accountId)
-            .sort((a, b) => b.date.getTime() - a.date.getTime());
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
 
     async getTransactionsWithAccount(startDate?: string, endDate?: string): Promise<(Transaction & { accountCurrency: string })[]> {
@@ -128,17 +125,17 @@ export class WebTransactionRepository implements ITransactionRepository {
         let filtered = transactions;
         if (startDate) {
             const start = new Date(startDate);
-            filtered = filtered.filter(t => t.date >= start);
+            filtered = filtered.filter(t => new Date(t.date) >= start);
         }
         if (endDate) {
             const end = new Date(endDate);
-            filtered = filtered.filter(t => t.date <= end);
+            filtered = filtered.filter(t => new Date(t.date) <= end);
         }
 
         return filtered.map(t => ({
             ...t,
             accountCurrency: accMap.get(t.accountId)?.currency || 'TWD'
-        })).sort((a, b) => b.date.getTime() - a.date.getTime());
+        })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
 
     async getCategorySpending(year: number, month: number): Promise<{ [key: string]: number }> {
@@ -175,7 +172,7 @@ export class WebTransactionRepository implements ITransactionRepository {
     async importTransaction(t: any): Promise<void> {
         const transactions = await this.getTransactions();
         const index = transactions.findIndex(tr => tr.id === t.id);
-        const newT = { ...t, date: new Date(t.date) };
+        const newT = { ...t, date: typeof t.date === 'string' ? t.date : new Date(t.date).toISOString() };
         if (index !== -1) {
             transactions[index] = newT;
         } else {

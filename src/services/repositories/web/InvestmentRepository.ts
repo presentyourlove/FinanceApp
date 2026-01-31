@@ -12,14 +12,7 @@ const KEY_ACCOUNTS = 'accounts';
 export class WebInvestmentRepository implements IInvestmentRepository {
     private async getAll(): Promise<Investment[]> {
         const items = await localforage.getItem<Investment[]>(KEY_INVESTMENTS);
-        return (items || []).map(i => ({
-            ...i,
-            date: new Date(i.date), // Restore date object? Interface expects string from DB usually, but type uses string...
-            // Wait, the interface in Types says `date: string` (ISO) for Investment?
-            // Let's check types. Usually DB stores string.
-            // Sqlite repo maps row to object.
-            // Let's assume input `date` is ISO string based on `addInvestment`.
-        }));
+        return items || [];
     }
     private async saveAll(items: Investment[]) {
         await localforage.setItem(KEY_INVESTMENTS, items);
@@ -56,7 +49,7 @@ export class WebInvestmentRepository implements IInvestmentRepository {
                     id: linkedTransactionId,
                     amount: totalExpense,
                     type: TransactionType.EXPENSE,
-                    date: new Date(data.date),
+                    date: typeof data.date === 'string' ? data.date : new Date(data.date).toISOString(),
                     description: `投資: ${data.name}`,
                     accountId: syncOptions.sourceAccountId,
                 };
@@ -139,7 +132,7 @@ export class WebInvestmentRepository implements IInvestmentRepository {
                 id: maxTId + 1,
                 amount: data.returnAmount,
                 type: TransactionType.INCOME,
-                date: new Date(data.date),
+                date: data.date,
                 description: `投資回收: ${inv.name} (${actionType})`,
                 accountId: syncOptions.targetAccountId,
             };

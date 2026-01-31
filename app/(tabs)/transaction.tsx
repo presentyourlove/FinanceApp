@@ -359,7 +359,6 @@ export default function TransactionScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('transaction.noTransactions')}</Text>}
         contentContainerStyle={{ paddingBottom: 100 }}
         keyboardDismissMode="on-drag"
-        estimatedItemSize={70}
       />
       <TransferModal
         visible={isTransferModalVisible}

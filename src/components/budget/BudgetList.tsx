@@ -66,7 +66,6 @@ export const BudgetList: React.FC<BudgetListProps> = ({
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('budget.emptyList')}</Text>}
-            estimatedItemSize={150}
         />
     );
 };
