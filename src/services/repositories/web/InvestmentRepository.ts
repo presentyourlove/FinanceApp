@@ -1,9 +1,7 @@
 import { IInvestmentRepository } from '../interfaces';
 import localforage from 'localforage';
 import { Investment, TransactionType } from '@/src/types';
-import { WebTransactionRepository } from './TransactionRepository'; // To reuse logic if needed, or better, instantiate in factory.
-// We'll instantiate a fresh Repo or use logic here.
-// For Web, easy enough to re-verify dependencies.
+// Note: Transaction logic implemented directly to avoid circular dependency
 
 const KEY_INVESTMENTS = 'investments';
 const KEY_TRANSACTIONS = 'transactions';

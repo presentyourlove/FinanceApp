@@ -1,13 +1,7 @@
 import { IInvestmentRepository } from '../interfaces';
 import { runSqlSync, getRowsSync, notifyListeners } from '../../database/core';
 import { Investment, TransactionType } from '@/src/types';
-import { addTransactionDB } from '../../database/transactions'; // Be careful with circular deps, maybe inject repo?
-// Circular Dependency Risk: TransactionService imports InvestmentService, and vice versa.
-// But here we are in Repos.
-// Ideally, `addTransactionDB` should be replaced by `transactionRepository.addTransaction`.
-// Current refactoring: Keep it simple for now, but note the circularity.
-// Since we are migrating, we should use the new Transaction Repo if possible, OR keep using the exported service function which will eventually point to the repo.
-// For now, let's keep the import but acknowledge it.
+// Note: We implement transaction logic directly with SQL to avoid circular dependency
 
 export class SqliteInvestmentRepository implements IInvestmentRepository {
     async addInvestment(data: Omit<Investment, 'id' | 'status'>, syncOptions: { syncToTransaction: boolean; sourceAccountId?: number }): Promise<number> {

@@ -13,6 +13,7 @@ jest.mock('../../../services/database', () => ({
 }));
 
 jest.mock('@/src/components/common/SwipeView', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { View } = require('react-native');
     const MockSwipeView = ({ children }: any) => <View>{children}</View>;
     MockSwipeView.displayName = 'MockSwipeView';

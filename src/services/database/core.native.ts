@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { notifyListeners } from './observer';
+// notifyListeners is imported but not used directly in this file - re-exported for other modules
 export { addDataChangeListener, removeDataChangeListener, notifyListeners } from './observer';
 
 // 建立資料庫連線

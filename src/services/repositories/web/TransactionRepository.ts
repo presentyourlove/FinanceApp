@@ -54,7 +54,7 @@ export class WebTransactionRepository implements ITransactionRepository {
 
     async performTransfer(fromAccountId: number, toAccountId: number, amount: number, date: Date, description: string): Promise<void> {
         // 1. Add Transaction
-        const tId = await this.addTransaction({
+        await this.addTransaction({
             amount,
             type: TransactionType.TRANSFER,
             date,
