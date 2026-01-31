@@ -181,21 +181,38 @@ eas build -p ios --profile preview
 
 ## 🌐 Web 部署 (Web Deployment)
 
-本專案已配置自動部署 Web 版本到 GitHub Pages。每次推送到 `main` 分支時，會自動觸發建置與部署。
+本專案使用 **Vercel** 自動部署 Web 版本。
 
 ### 訪問 Web App
 
-部署後的 Web 應用程式可在以下網址訪問：
+部署後的 Web 應用程式將可在 Vercel 提供的網址訪問（首次部署後會獲得）。
 
-* **GitHub Pages**: <https://presentyourlove.github.io/FinanceApp/>
+### 首次設置 Vercel 部署
 
-### 手動部署
+1. 前往 [vercel.com](https://vercel.com) 並使用 GitHub 帳號登入
+2. 點擊 "Add New" → "Project"
+3. 從列表中選擇 `FinanceApp` repository
+4. Vercel 會自動檢測到 `vercel.json` 配置
+5. 點擊 "Deploy" 開始部署
+6. 部署完成後會獲得網址（如 `https://finance-app-xxx.vercel.app`）
 
-如需手動觸發部署：
+### 自動部署
 
-1. 前往 GitHub Repository 的 "Actions" 頁面
-2. 選擇 "Deploy Web App" workflow
-3. 點擊 "Run workflow"
+每次推送到 `main` 分支時，Vercel 會自動觸發重新部署。
+
+### 環境變數設置
+
+在 Vercel Dashboard 中設置 Firebase 環境變數：
+
+1. Project Settings → Environment Variables
+2. 添加以下變數：
+   * `EXPO_PUBLIC_FIREBASE_API_KEY`
+   * `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   * `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+   * `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   * `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   * `EXPO_PUBLIC_FIREBASE_APP_ID`
+   * `EXPO_OFFLINE`
 
 ### 本地測試 Web 版本
 
