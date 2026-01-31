@@ -148,6 +148,7 @@
         "emailPlaceholder": "Email",
         "passwordPlaceholder": "密碼",
         "missingCredentials": "請輸入 Email 和密碼",
+        "enterEmailPassword": "請輸入 Email 和密碼",
         "loginFail": "登入失敗",
         "registerFail": "註冊失敗",
         "syncComplete": "同步完成",
@@ -155,7 +156,15 @@
         "downloadFailWarning": "雖已登入，但無法下載備份: ",
         "title": "雲端同步",
         "notEnabled": "雲端同步功能未啟用",
-        "backupRestore": "資料備份與還原"
+        "backupRestore": "資料備份與還原",
+        "autoRestoreSuccess": "已自動還原您的資料！",
+        "autoRestoreFail": "自動還原失敗: {{message}}",
+        "description1": "登入後，您的資料將自動備份到雲端。",
+        "description2": "更換手機或重新安裝時，只需登入即可還原所有資料。",
+        "tip": "請放心，您的資料僅供您個人存取。",
+        "confirmRestoreTitle": "確認還原",
+        "confirmRestoreMessage": "還原備份將會覆蓋您目前所有的本地資料。您確定要繼續嗎？",
+        "confirmRestoreButton": "還原"
     },
     "currency": {
         "invalidRate": "新主幣別的匯率無效，無法切換。請先設定有效的匯率。",
