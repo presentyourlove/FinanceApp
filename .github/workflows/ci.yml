@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout 程式碼
+      uses: actions/checkout@v4
+    
+    - name: 設定 Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: 安裝依賴
+      run: npm ci
+    
+    - name: TypeScript 類型檢查
+      run: npm run type-check
+    
+    - name: ESLint 程式碼檢查
+      run: npm run lint
+    
+    - name: 執行單元測試
+      run: npm run test:ci
+    
+    - name: 上傳測試覆蓋率報告
+      uses: codecov/codecov-action@v4
+      if: success()
+      with:
+        files: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true

@@ -8,6 +8,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "type-check": "tsc --noEmit",
     "lint": "expo lint"
   },
   "dependencies": {
