@@ -172,7 +172,12 @@
         "newPlaceholder": "新分類名稱",
         "add": "新增",
         "expense": "支出",
-        "income": "收入"
+        "income": "收入",
+        "addNewTitle": "新增{{type}}分類",
+        "existingTitle": "現有{{type}}分類",
+        "dragToReorder": "長按可拖曳排序",
+        "missingInfo": "請輸入分類名稱",
+        "deleteConfirm": "確定要刪除此分類嗎？"
     },
     "account": {
         "nameInvalid": "請輸入新的帳本名稱。",
