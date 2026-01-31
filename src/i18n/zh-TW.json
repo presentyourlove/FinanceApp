@@ -236,7 +236,15 @@
         "sourceAccount": "扣款帳戶",
         "confirmDate": "確定",
         "holdings": "{{name}} 持倉明細",
-        "updatePrice": "更新現價"
+        "updatePrice": "更新現價",
+        "addTitle": "新增投資項目",
+        "sellStock": "賣出股票",
+        "closeDeposit": "定存解約",
+        "withdraw": "提領資金",
+        "sellPrice": "賣出價格",
+        "quantity": "數量",
+        "finalInterest": "最終利息",
+        "withdrawAmount": "提領金額"
     },
     "analysis": {
         "title": "財務分析",
