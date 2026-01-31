@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/services/auth';
 import { useSync } from '@/src/hooks/useSync';
 import { useTheme } from '@/src/context/ThemeContext';
-import { hasFirebaseConfig, auth, supabase } from '@/src/services/firebaseConfig';
+import { hasFirebaseConfig, auth } from '@/src/services/firebaseConfig';
 import { restoreFromCloud } from '@/src/services/sync';
 import i18n from '@/src/i18n';
 
@@ -24,7 +24,7 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
     const { colors } = useTheme();
     const styles = getStyles(colors);
 
-    const { user, signIn, signUp, loading, session } = useAuth();
+    const { user, signIn, signUp, loading, signOut } = useAuth();
     const { isBackingUp, isRestoring, lastBackupTime, handleBackup, handleRestore } = useSync(user?.uid);
 
     const [email, setEmail] = useState('');
@@ -89,7 +89,7 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
                             💡 {i18n.t('sync.tip')}
                         </Text>
                     </View>
-                ) : !session ? (
+                ) : !user ? (
                     <View style={styles.card}>
                         <Text style={styles.warningTitle}>⚠️ {i18n.t('sync.notEnabled')}</Text>
                         <TextInput
@@ -120,8 +120,8 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
                     </View>
                 ) : (
                     <View style={styles.card}>
-                        <Text style={[styles.userInfo, { marginBottom: 10 }]}>Email: {session.user.email}</Text>
-                        <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => supabase.auth.signOut()}>
+                        <Text style={[styles.userInfo, { marginBottom: 10 }]}>Email: {user?.email || 'N/A'}</Text>
+                        <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={signOut}>
                             <Text style={[styles.buttonText, { color: colors.text }]}>{i18n.t('common.cancel')}</Text>
                         </TouchableOpacity>
 
@@ -129,7 +129,7 @@ export default function SyncSettingsView({ onRefreshData }: SyncSettingsViewProp
 
                         <Text style={styles.sectionTitle}>{i18n.t('sync.backupRestore')}</Text>
                         <View style={styles.syncButtons}>
-                            <TouchableOpacity style={[styles.syncButton, { backgroundColor: colors.primary }]} onPress={handleBackup} disabled={isBackingUp}>
+                            <TouchableOpacity style={[styles.syncButton, { backgroundColor: colors.tint }]} onPress={handleBackup} disabled={isBackingUp}>
                                 {isBackingUp ? <ActivityIndicator color="#fff" /> : <Ionicons name="cloud-upload" size={24} color="#fff" />}
                                 <Text style={styles.syncButtonText}>{isBackingUp ? '...' : i18n.t('common.save')}</Text>
                             </TouchableOpacity>

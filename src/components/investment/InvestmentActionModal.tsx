@@ -152,7 +152,7 @@ export default function InvestmentActionModal({
                             </>
                         )}
 
-                        {investment.type === 'fund' && (
+                        {investment.type === 'savings' && (
                             <>
                                 <Text style={styles.label}>{i18n.t('investment.withdrawAmount')}</Text>
                                 <TextInput

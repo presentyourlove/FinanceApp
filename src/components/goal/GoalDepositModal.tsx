@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, Pressable, Keyboard, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, TextInput, Pressable, Keyboard, Switch, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Goal } from '@/src/services/database';
 import i18n from '@/src/i18n';

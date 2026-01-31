@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { commonStyles } from '@/src/styles/common';
 
 export const getStyles = (colors: any, insets: any) => StyleSheet.create({

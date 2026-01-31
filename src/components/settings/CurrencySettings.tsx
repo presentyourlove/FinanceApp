@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import i18n from '@/src/i18n';
 import SwipeView from '@/src/components/common/SwipeView';
 import * as CurrencyStorage from '@/src/services/storage/currencyStorage';
 
