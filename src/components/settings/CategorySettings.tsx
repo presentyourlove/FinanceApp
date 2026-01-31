@@ -28,7 +28,31 @@ export const CategorySettings: React.FC<CategorySettingsProps> = ({ onBack, colo
     const loadCategories = async () => {
         try {
             const loaded = await CategoryStorage.loadCategories();
-            setCategories(loaded || []);
+            // Convert old Categories format to Category[]
+            const allCategories: Category[] = [];
+            if (loaded[TransactionType.EXPENSE]) {
+                loaded[TransactionType.EXPENSE].forEach((name: string) => {
+                    allCategories.push({
+                        id: Date.now() + Math.random(),
+                        icon: '💰',
+                        name,
+                        type: TransactionType.EXPENSE,
+                        isDefault: true
+                    });
+                });
+            }
+            if (loaded[TransactionType.INCOME]) {
+                loaded[TransactionType.INCOME].forEach((name: string) => {
+                    allCategories.push({
+                        id: Date.now() + Math.random(),
+                        icon: '💵',
+                        name,
+                        type: TransactionType.INCOME,
+                        isDefault: true
+                    });
+                });
+            }
+            setCategories(allCategories);
         } catch (e) {
             console.error("Failed to load categories", e);
             setCategories([]);
@@ -51,7 +75,13 @@ export const CategorySettings: React.FC<CategorySettingsProps> = ({ onBack, colo
 
         const updated = [...categories, newCat];
         setCategories(updated);
-        await CategoryStorage.saveCategories(updated);
+
+        // Convert to old format for storage
+        const toSave: CategoryStorage.Categories = {
+            [TransactionType.EXPENSE]: updated.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name),
+            [TransactionType.INCOME]: updated.filter(c => c.type === TransactionType.INCOME).map(c => c.name)
+        };
+        await CategoryStorage.saveCategories(toSave);
 
         setNewCategoryName('');
         setNewCategoryIcon('');
@@ -73,7 +103,13 @@ export const CategorySettings: React.FC<CategorySettingsProps> = ({ onBack, colo
                     onPress: async () => {
                         const updated = categories.filter(c => c.id !== id);
                         setCategories(updated);
-                        await CategoryStorage.saveCategories(updated);
+
+                        // Convert to old format
+                        const toSave: CategoryStorage.Categories = {
+                            [TransactionType.EXPENSE]: updated.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name),
+                            [TransactionType.INCOME]: updated.filter(c => c.type === TransactionType.INCOME).map(c => c.name)
+                        };
+                        await CategoryStorage.saveCategories(toSave);
                     }
                 }
             ]
@@ -116,7 +152,13 @@ export const CategorySettings: React.FC<CategorySettingsProps> = ({ onBack, colo
                         const otherCategories = categories.filter(c => c.type !== activeTab);
                         const updatedCategories = [...otherCategories, ...data];
                         setCategories(updatedCategories);
-                        CategoryStorage.saveCategories(updatedCategories);
+
+                        // Convert to old format
+                        const toSave: CategoryStorage.Categories = {
+                            [TransactionType.EXPENSE]: updatedCategories.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name),
+                            [TransactionType.INCOME]: updatedCategories.filter(c => c.type === TransactionType.INCOME).map(c => c.name)
+                        };
+                        CategoryStorage.saveCategories(toSave);
                     }}
                     keyExtractor={(item) => item.id.toString()}
                     ListHeaderComponent={

@@ -3,6 +3,10 @@ import { commonStyles } from '@/src/styles/common';
 
 export const getStyles = (colors: any, insets: any) => StyleSheet.create({
     // ...
+    container: {
+        flex: 1,
+        backgroundColor: colors.background
+    },
     header: {
         paddingTop: 10,
         paddingHorizontal: 20,

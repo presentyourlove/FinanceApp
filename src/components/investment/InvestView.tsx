@@ -7,7 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/context/ThemeContext';
 import { Investment } from '@/src/services/database';
-import { useInvestments, GroupedInvestment } from '@/src/hooks/useInvestments';
+import { useInvestments } from '@/src/hooks/useInvestments';
+import { GroupedInvestment } from '@/src/types';
 import InvestmentCard from '@/src/components/investment/InvestmentCard';
 import UpdatePriceModal from '@/src/components/investment/UpdatePriceModal';
 import StockDetailModal from '@/src/components/investment/StockDetailModal';
