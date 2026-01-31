@@ -179,6 +179,34 @@ eas build -p android --profile preview
 eas build -p ios --profile preview
 ```
 
+## 🌐 Web 部署 (Web Deployment)
+
+本專案已配置自動部署 Web 版本到 GitHub Pages。每次推送到 `main` 分支時，會自動觸發建置與部署。
+
+### 訪問 Web App
+
+部署後的 Web 應用程式可在以下網址訪問：
+* **GitHub Pages**: <https://presentyourlove.github.io/FinanceApp/>
+
+### 手動部署
+
+如需手動觸發部署：
+
+1. 前往 GitHub Repository 的 "Actions" 頁面
+2. 選擇 "Deploy Web App" workflow
+3. 點擊 "Run workflow"
+
+### 本地測試 Web 版本
+
+```bash
+# 啟動 Web 開發伺服器
+npm run web
+
+# 建置 Web 生產版本
+npx expo export:web
+# 輸出目錄：dist/
+```
+
 ## 🤝 貢獻 (Contribution)
 
 歡迎提交 Pull Request 或 Issue！請確保：

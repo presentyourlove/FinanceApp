@@ -31,7 +31,8 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/logo.png",
+      "basePath": "/FinanceApp"
     },
     "plugins": [
       "expo-router",
