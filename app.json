@@ -40,11 +40,14 @@
     "experiments": {
       "typedRoutes": true
     },
-    "experiments": {
-      "typedRoutes": true
-    },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "12d5ce70-0ee3-4b1d-b985-4dfae21f1c62"
+      }
     }
   }
 }
