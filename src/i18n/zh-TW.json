@@ -28,10 +28,10 @@
         "selectAccountError": "錯誤",
         "selectAccountErrorMsg": "請先選擇一個帳本。",
         "accountNotFound": "找不到帳本",
-        "transferTo": "轉出至 {account}",
-        "transferFrom": "轉入自 {account}",
+        "transferTo": "轉出至 {{account}}",
+        "transferFrom": "轉入自 {{account}}",
         "success": "成功",
-        "recordSuccess": "{type} NT$ {amount} 已記錄!",
+        "recordSuccess": "{{type}} NT$ {{amount}} 已記錄!",
         "fail": "交易失敗",
         "failMsg": "處理交易時發生錯誤。",
         "invalidOp": "無效操作",
@@ -39,7 +39,7 @@
         "invalidTransferTarget": "請確保轉出與轉入帳本不同且已選定。",
         "insufficientBalance": "餘額不足",
         "insufficientBalanceMsg": "轉出帳本餘額不足。",
-        "transferSuccess": "NT$ {amount} 已從 {source} 轉出至 {target}。",
+        "transferSuccess": "NT$ {{amount}} 已從 {{source}} 轉出至 {{target}}。",
         "transferFail": "轉帳失敗",
         "transferFailMsg": "處理轉帳時發生錯誤。",
         "transferEditHint": "提示",
@@ -168,7 +168,7 @@
         "saveButton": "儲存設定"
     },
     "category": {
-        "addSuccess": "備註「{category}」已加入{type} 列表！",
+        "addSuccess": "備註「{{category}}」已加入{{type}} 列表！",
         "newPlaceholder": "新分類名稱",
         "add": "新增",
         "expense": "支出",
@@ -177,7 +177,7 @@
     "account": {
         "nameInvalid": "請輸入新的帳本名稱。",
         "invalidAmount": "請輸入有效的初始資金。",
-        "addSuccess": "帳本「{name}」已新增。",
+        "addSuccess": "帳本「{{name}}」已新增。",
         "addFail": "新增帳本時發生錯誤。",
         "deleteFail": "刪除帳本時發生錯誤。",
         "deleteSuccess": "帳本已刪除。",
@@ -221,7 +221,7 @@
         "syncToTransaction": "同步至記帳 (支出)",
         "sourceAccount": "扣款帳戶",
         "confirmDate": "確定",
-        "holdings": "{name} 持倉明細",
+        "holdings": "{{name}} 持倉明細",
         "updatePrice": "更新現價"
     },
     "analysis": {
@@ -241,9 +241,9 @@
         "thisMonth": "本月",
         "thisYear": "今年",
         "noData": "尚無支出資料",
-        "adviceOverSpent": "⚠️ {period}支出已超過收入，建議檢視非必要開銷。",
-        "adviceHighSpent": "⚠️ {period}支出已達收入的 80%，請注意控制預算。",
-        "adviceGood": "✅ {period}財務狀況良好，繼續保持！",
-        "adviceTopCategory": "💡 您在「{category}」類別花費最多，建議設定預算上限。"
+        "adviceOverSpent": "⚠️ {{period}}支出已超過收入，建議檢視非必要開銷。",
+        "adviceHighSpent": "⚠️ {{period}}支出已達收入的 80%，請注意控制預算。",
+        "adviceGood": "✅ {{period}}財務狀況良好，繼續保持！",
+        "adviceTopCategory": "💡 您在「{{category}}」類別花費最多，建議設定預算上限。"
     }
 }
