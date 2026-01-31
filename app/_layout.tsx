@@ -35,7 +35,7 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    // SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'), // 字體文件不存在，已註釋
+    SpaceMono: require('../assets/fonts/space_mono_regular.ttf'),
     ...FontAwesome.font,
   });
 
