@@ -4,6 +4,7 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-cyan)](https://reactnative.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![CI](https://github.com/YOUR_USERNAME/FinanceApp/workflows/CI/badge.svg)
 
 一個基於 **React Native (Expo)** 與 **TypeScript** 打造的現代化個人理財應用程式。專注於極致的效能、優美的 UI/UX 設計，以及企業級的程式碼品質。
 
