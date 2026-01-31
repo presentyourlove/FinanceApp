@@ -1,4 +1,4 @@
-# 💰 AI Finance App (智慧理財助手)
+# 💰 Finance App (智慧理財助手)
 
 [![Expo SDK](https://img.shields.io/badge/Expo%20SDK-52-blue)](https://expo.dev/)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-cyan)](https://reactnative.dev/)
