@@ -1,100 +1,26 @@
-import { runSqlSync, getRowsSync, notifyListeners } from './core';
+import { accountRepository } from '../repositories';
 import { Account } from '@/src/types';
 
-/**
- * 讀取所有帳本
- */
 export const getAccounts = async (): Promise<Account[]> => {
-    // 返回行陣列
-    const rows = getRowsSync('SELECT * FROM accounts ORDER BY sortIndex ASC, id ASC;') as any[];
-
-    return rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        initialBalance: row.initialBalance,
-        currentBalance: row.currentBalance,
-        currency: row.currency || 'TWD',
-        sortIndex: row.sortIndex
-    }));
+    return accountRepository.getAccounts();
 };
 
-/**
- * 更新帳本餘額
- */
 export const updateAccountBalanceDB = async (id: number, newBalance: number) => {
-    runSqlSync(
-        `UPDATE accounts SET currentBalance = ? WHERE id = ?;`,
-        [newBalance, id]
-    );
-    notifyListeners();
+    return accountRepository.updateAccountBalance(id, newBalance);
 };
 
-/**
- * 新增一個帳本
- */
 export const addAccountDB = async (name: string, initialBalance: number, currency: string = 'TWD') => {
-    // 找出目前最大的 sortIndex
-    const resCount = getRowsSync('SELECT MAX(sortIndex) as maxIndex FROM accounts;') as any[];
-    const maxIndex = (resCount && resCount.length > 0 && resCount[0].maxIndex !== null) ? resCount[0].maxIndex : -1;
-    const nextIndex = maxIndex + 1;
-
-    const res = runSqlSync(
-        `INSERT INTO accounts (name, initialBalance, currentBalance, currency, sortIndex) VALUES (?, ?, ?, ?, ?);`,
-        [name, initialBalance, initialBalance, currency, nextIndex]
-    );
-    const result = res && res.lastInsertRowId || Date.now();
-    notifyListeners();
-    return result;
+    return accountRepository.addAccount(name, initialBalance, currency);
 };
 
-/**
- * 更新帳本排序
- */
 export const updateAccountOrderDB = async (accounts: Account[]) => {
-    runSqlSync('BEGIN TRANSACTION;');
-    try {
-        for (let i = 0; i < accounts.length; i++) {
-            runSqlSync(
-                `UPDATE accounts SET sortIndex = ? WHERE id = ?;`,
-                [i, accounts[i].id]
-            );
-        }
-        runSqlSync('COMMIT;');
-        notifyListeners();
-    } catch (e) {
-        runSqlSync('ROLLBACK;');
-        console.error("Error updating account order:", e);
-        throw e;
-    }
+    return accountRepository.updateAccountOrder(accounts);
 };
 
-/**
- * 刪除一個帳本 
- */
 export const deleteAccountDB = async (id: number) => {
-    // 檢查是否有相關交易 (檢查 accountId 或 targetAccountId)
-    const transactionCheck = getRowsSync(
-        `SELECT COUNT(id) as count FROM transactions WHERE accountId = ? OR targetAccountId = ?;`,
-        [id, id]
-    ) as any[];
-    // 修正：transactionCheck 是行陣列
-    const count = transactionCheck && transactionCheck.length > 0 ? transactionCheck[0].count : 0;
-
-    if (count > 0) {
-        throw new Error("Account has transactions and cannot be deleted.");
-    }
-
-    runSqlSync(
-        `DELETE FROM accounts WHERE id = ?;`,
-        [id]
-    );
-    notifyListeners();
+    return accountRepository.deleteAccount(id);
 };
 
-// Import helper
 export const importAccountDB = async (acc: any) => {
-    runSqlSync(
-        `INSERT INTO accounts (id, name, initialBalance, currentBalance, currency) VALUES (?, ?, ?, ?, ?);`,
-        [acc.id, acc.name, acc.initialBalance, acc.currentBalance, acc.currency]
-    );
+    return accountRepository.importAccount(acc);
 };
