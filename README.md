@@ -181,38 +181,40 @@ eas build -p ios --profile preview
 
 ## 🌐 Web 部署 (Web Deployment)
 
-本專案使用 **Vercel** 自動部署 Web 版本。
+本專案使用 **Firebase Hosting** 進行 Web 版本部署。
 
 ### 訪問 Web App
 
-部署後的 Web 應用程式將可在 Vercel 提供的網址訪問（首次部署後會獲得）。
+部署後的 Web 應用程式可在以下網址訪問：
+* **URL**: <https://aifinanceapp-2ce60.web.app/>
 
-### 首次設置 Vercel 部署
+### 手動部署步驟
 
-1. 前往 [vercel.com](https://vercel.com) 並使用 GitHub 帳號登入
-2. 點擊 "Add New" → "Project"
-3. 從列表中選擇 `FinanceApp` repository
-4. Vercel 會自動檢測到 `vercel.json` 配置
-5. 點擊 "Deploy" 開始部署
-6. 部署完成後會獲得網址（如 `https://finance-app-xxx.vercel.app`）
+1. **安裝 Firebase CLI** (若尚未安裝)
 
-### 自動部署
+   ```bash
+   npm install -g firebase-tools
+   ```
 
-每次推送到 `main` 分支時，Vercel 會自動觸發重新部署。
+2. **登入 Firebase**
 
-### 環境變數設置
+   ```bash
+   npx firebase login
+   ```
 
-在 Vercel Dashboard 中設置 Firebase 環境變數：
+3. **建置 Web 版本**
 
-1. Project Settings → Environment Variables
-2. 添加以下變數：
-   * `EXPO_PUBLIC_FIREBASE_API_KEY`
-   * `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-   * `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
-   * `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
-   * `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-   * `EXPO_PUBLIC_FIREBASE_APP_ID`
-   * `EXPO_OFFLINE`
+   ```bash
+   npx expo export --platform web
+   ```
+
+   這會產生 `dist` 資料夾。
+
+4. **部署到 Firebase**
+
+   ```bash
+   npx firebase deploy --only hosting
+   ```
 
 ### 本地測試 Web 版本
 
@@ -220,9 +222,8 @@ eas build -p ios --profile preview
 # 啟動 Web 開發伺服器
 npm run web
 
-# 建置 Web 生產版本
-npx expo export --platform web
-# 輸出目錄：dist/
+# 預覽生產版本 (使用 Firebase Local Server)
+npx firebase serve --only hosting
 ```
 
 ## 🤝 貢獻 (Contribution)
